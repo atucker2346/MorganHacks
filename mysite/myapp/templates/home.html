@@ -1,50 +1,175 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>3D Background Website</title>
-    <style>
-        /* Make page and iframe full-screen */
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-        }
-        .background {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }
-        .content {
-            position: relative;
-            z-index: 1;
-            color: white;
-            text-align: center;
-            font-family: Arial, sans-serif;
-            top: 30%;
-            position: absolute;
-            width: 100%;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Analysis - Home</title>
+
+  <style>
+    /* --- Global Styles & Variables --- */
+    :root {
+      --page-bg-color: #000;
+      --primary-purple: #8a2be2;
+      --light-purple: #9370db;
+      --text-color: #f0f0f0;
+      --border-color: rgba(255, 255, 255, 0.2);
+      --box-bg: rgba(40, 40, 40, 0.3);
+      --glass-box-bg: rgba(138, 43, 226, 0.1);
+      --glass-box-border: rgba(147, 112, 219, 0.5);
+      --blur-amount: 8px;
+      --border-radius: 12px;
+      --content-max-width: 1200px;
+      --text-glow-color: rgba(147, 112, 219, 0.7);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--page-bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(26, 26, 26, 0.8);
+      padding: 15px 5%;
+      border-bottom: 1px solid var(--primary-purple);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 1.8em; color: var(--primary-purple); }
+    header nav a {
+      color: var(--text-color);
+      margin-left: 20px;
+      text-decoration: none;
+      font-size: 1.1em;
+      border-bottom: 2px solid transparent;
+      transition: 0.3s;
+    }
+    header nav a:hover, header nav a.active {
+      color: var(--light-purple);
+      border-bottom-color: var(--light-purple);
+    }
+
+    .hero-section {
+      position: relative;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+      background: #111;
+    }
+
+    .spline-iframe {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      border: none;
+      opacity: 0.85;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .cta-button {
+      position: relative;
+      z-index: 1;
+      background: var(--glass-box-bg);
+      color: var(--text-color);
+      padding: 15px 30px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      font-size: 1.2em;
+      font-weight: bold;
+      text-decoration: none;
+      backdrop-filter: blur(var(--blur-amount));
+      transition: 0.3s;
+    }
+    .cta-button:hover {
+      background: rgba(147, 112, 219, 0.4);
+      transform: scale(1.05);
+    }
+
+    .features-section {
+      background: var(--page-bg-color);
+      padding: 60px 5%;
+      text-align: center;
+    }
+    .features-section h3 {
+      color: var(--light-purple);
+      font-size: 2em;
+      margin-bottom: 40px;
+      text-shadow: 0 0 8px var(--text-glow-color);
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      max-width: var(--content-max-width);
+      margin: auto;
+    }
+    .feature-item {
+      background: var(--box-bg);
+      border: 1px solid var(--primary-purple);
+      padding: 25px;
+      border-radius: var(--border-radius);
+      transition: 0.3s;
+    }
+    .feature-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(138, 43, 226, 0.3);
+    }
+    .feature-icon {
+      font-size: 2em;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.9em;
+      color: var(--light-purple);
+      border-top: 1px solid var(--border-color);
+    }
+  </style>
+
 </head>
+
 <body>
 
-    <!-- Spline 3D Scene -->
-    <div class="background">
-        <iframe src="https://my.spline.design/robotfollowcursorforlandingpage-mn70eWX3fML3FlHSi8ueB6Ka/" frameborder="0" width="100%" height="100%"></iframe>
-    </div>
+  <header>
+    <h1>Speech Analysis</h1>
+    <nav>
+      <a href="home.html" class="active">Home</a>
+      <a href="practice.html">Practice</a>
+    </nav>
+  </header>
 
-    <!-- Your Website Content -->
-    <div class="content">
-        <h1>Welcome</h1>
-        <p>Enjoy the 3D Interactive Background ✨</p>
-    </div>
+  <div class="page-container">
+    <section id="home-page" class="page active">
+      <div class="hero-section">
+        <iframe class="spline-iframe" src="https://my.spline.design/claritystream-vlh8q7RMRQu4axdnwAQYvkKk/" allowfullscreen></iframe>
+        <a href="practice.html" class="cta-button">Start Practicing Now</a>
+      </div>
+
+      <section class="features-section">
+        <h3>Key Features</h3>
+        <div class="features-grid">
+          <div class="feature-item"><div class="feature-icon">📊</div><h4>Real-time Statistics</h4><p>Monitor your words per minute (WPM), pacing, and filler words as you speak.</p></div>
+          <div class="feature-item"><div class="feature-icon">💡</div><h4>Actionable Feedback</h4><p>Receive instant suggestions to improve your speech delivery.</p></div>
+          <div class="feature-item"><div class="feature-icon">📝</div><h4>Note Generation</h4><p>Generate key points or notes from your practice sessions automatically.</p></div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
 
 </body>
 </html>
-
-
