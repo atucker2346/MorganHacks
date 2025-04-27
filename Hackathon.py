@@ -111,7 +111,7 @@ else:
         print(f"### DEBUG ###: Attempting Gemini config with key ending ...{GOOGLE_API_KEY[-4:]}")
         genai.configure(api_key=GOOGLE_API_KEY)
         gemini_model = genai.GenerativeModel(
-            'gemini-1.5-flash',
+            'gemini-2.0-flash',
             system_instruction="You are a funny, supportive AI study buddy named 'Buddy'. Keep responses concise and friendly."
         )
         print("✅ Google Gemini configured.")
@@ -186,10 +186,10 @@ def analyze_posture(landmarks):
         l_ear = lm[mp_pose.PoseLandmark.LEFT_EAR.value]
         r_ear = lm[mp_pose.PoseLandmark.RIGHT_EAR.value]
         if not all(pt.visibility > 0.4 for pt in [nose, l_shoulder, r_shoulder, l_ear, r_ear]): return "Posture: Key points not clear"
-        shoulder_y_avg = (l_shoulder.y + r_shoulder.y) / 2
+        shoulder_y_avg = (l_shoulder.y + r_shoulder.y) / 3.5
         slouch_threshold = 0.08
         if nose.y > shoulder_y_avg + slouch_threshold: return "Posture: Possible Slouching"
-        tilt_threshold = 0.05
+        tilt_threshold = 0.02
         if abs(l_ear.y - r_ear.y) > tilt_threshold: return "Posture: Head Tilt Detected"
         return "Posture: Looking Good"
     except IndexError: return "Posture: Some points missing"
