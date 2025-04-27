@@ -6,6 +6,7 @@ from datetime import datetime
 import threading
 import Hackathon as hack
 import time
+import re
 
 latest_frame = None
 frame_lock = threading.Lock()
@@ -33,9 +34,9 @@ def send_static(path):
 def home():
     return render_template('home.html')
 
-@app.route('/practice')
+@app.route('/practice.html')
 def practice():
-    return render_template('practice.html.html')
+    return render_template('practice.html')
 
 @app.route('/history.html')
 def history():
@@ -45,7 +46,7 @@ def history():
 def notes():
     return render_template('notes.html')
 
-@app.route('/live_practice')
+@app.route('/live_practice.html')
 def live_practice():
     return render_template("live_practice.html")
 
@@ -56,7 +57,7 @@ def video_feed():
         minetype='multipart/x-mixed-replace; boundary=frame'
     )
 
-@app.route('/start-practice', methods=['POST'])
+@app.route('/start_practice', methods=['POST'])
 def start_practice():
     """Launch background threads for camera and mic, then redirect to live practice page."""
     # Reset stop flag and start practice mode
@@ -90,14 +91,45 @@ def camera_feed():
 @app.route('/api/latest_practice_data')
 def get_latest_practice_data():
     try:
+        # If we're actively practicing, return the current session data
+        if hack.is_practicing_speech:
+            # Calculate current duration
+            duration = time.time() - hack.speech_practice_data.get("start_time", time.time())
+            # Get current transcript
+            transcript = hack.speech_practice_data.get("text", "")
+            # Count words
+            words = len(transcript.split()) if transcript else 0
+            # Calculate WPM
+            wpm = int(words / (duration / 60.0)) if duration > 0 else 0
+            # Count filler words
+            filler_count = 0
+            for filler in hack.FILLER_WORDS:
+                filler_count += len(re.findall(r'\b' + re.escape(filler) + r'\b', transcript.lower()))
+            
+            # Get current posture
+            with hack.posture_lock:
+                posture = hack.current_posture_status
+                
+            return jsonify({
+                'success': True,
+                'practice_session': {
+                    'session_id': 0,  # Temporary ID for active session
+                    'timestamp': datetime.now().isoformat(),
+                    'duration_seconds': round(duration, 1),
+                    'total_words': words,
+                    'wpm': wpm,
+                    'filler_count': filler_count,
+                    'final_posture': posture,
+                    'transcript': transcript
+                }
+            }), 200
+        
+        # If not practicing, try to get the latest saved session
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-
-        # pull the latest row by timestamp (assumes ISO-formatted timestamps)
         cur.execute('''
-            SELECT *
-            FROM speech_practice_sessions
+            SELECT * FROM speech_practice_sessions
             ORDER BY datetime(timestamp) DESC
             LIMIT 1
         ''')
@@ -105,88 +137,34 @@ def get_latest_practice_data():
         conn.close()
 
         if row is None:
-            # 404: no sessions at all
+            # If no sessions are found, return a demo session
             return jsonify({
-                'success': False,
-                'error': 'No practice sessions found in database.'
-            }), 404
+                'success': True,
+                'practice_session': {
+                    'session_id': 0,
+                    'timestamp': datetime.now().isoformat(),
+                    'duration_seconds': 0,
+                    'total_words': 0,
+                    'wpm': 0,
+                    'filler_count': 0,
+                    'final_posture': "No posture data",
+                    'transcript': "No transcript available yet. Start speaking to see text here."
+                }
+            }), 200
 
-        # Map into a plain dict
-        session = {
-            'session_id':       row['session_id'],
-            'timestamp':        row['timestamp'],
-            'duration_seconds': row['duration_seconds'],
-            'total_words':      row['total_words'],
-            'wpm':              row['wpm'],
-            'filler_count':     row['filler_count'],
-            'final_posture':    row['final_posture'],
-            'transcript':       row['transcript']
-        }
-
-        # Return exactly what script.js expects: data.practice_session
+        # Return data from the database
+        session = dict(row)
         return jsonify({
             'success': True,
             'practice_session': session
         }), 200
 
-    except sqlite3.OperationalError as oe:
-        # 500: something went wrong at the SQLite level
-        return jsonify({
-            'success': False,
-            'error': f'Database operational error: {oe}'
-        }), 500
-
     except Exception as e:
-        # 500: catch-all for anything unexpected
+        print(f"Error in get_latest_practice_data: {e}")
         return jsonify({
             'success': False,
-            'error': f'Unexpected server error: {e}'
+            'error': str(e)
         }), 500
-
-@app.route('/api/speech_history')
-def get_speech_history():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Get search parameters
-    search_term = request.args.get('search', '')
-    
-    if search_term:
-        # Search in transcript or timestamp
-        cursor.execute('''
-            SELECT * FROM speech_practice_sessions 
-            WHERE transcript LIKE ? OR timestamp LIKE ?
-            ORDER BY timestamp DESC
-        ''', (f'%{search_term}%', f'%{search_term}%'))
-    else:
-        # Get all sessions
-        cursor.execute('''
-            SELECT * FROM speech_practice_sessions 
-            ORDER BY timestamp DESC
-        ''')
-    
-    rows = cursor.fetchall()
-    conn.close()
-    
-    sessions = []
-    for row in rows:
-        session = dict(row)
-        # Convert timestamp if needed
-        if 'timestamp' in session:
-            try:
-                # If timestamp is stored as Unix timestamp (integer)
-                timestamp = int(session['timestamp'])
-                session['timestamp'] = datetime.fromtimestamp(timestamp).isoformat()
-            except ValueError:
-                # If it's already a string, leave it as is
-                pass
-        
-        sessions.append(session)
-    
-    return jsonify({
-        'success': True,
-        'sessions': sessions
-    })
 
 @app.route('/api/recent_stats')
 def get_recent_stats():

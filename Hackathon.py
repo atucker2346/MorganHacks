@@ -434,27 +434,56 @@ def run_camera_feed():
 
 def gen_camera_frames():
     cap = cv2.VideoCapture(0)
-    with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # do MediaPipe pose processing and annotate 'frame'...
-            # e.g.:
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            continue  # Skip this iteration if no frame was captured
+            
+        try:
+            # Convert frame to RGB for MediaPipe
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(frame_rgb)
-            # draw landmarks …
-            # overlay posture text …
-
-            # encode as JPEG
-            ret2, buf = cv2.imencode(".jpg", frame)
-            if not ret2:
+            
+            # Process with MediaPipe Pose
+            if pose:  # Make sure the pose object exists
+                results = pose.process(frame_rgb)
+                
+                # Draw landmarks if pose detected
+                if results and results.pose_landmarks:
+                    mp_drawing.draw_landmarks(
+                        frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
+                        mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
+                        mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
+                    )
+                    
+                    # Analyze posture and update global state
+                    posture_text = analyze_posture(results.pose_landmarks)
+                    cv2.putText(frame, posture_text, (10, 30), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+                    
+                    with posture_lock:
+                        current_posture_status = posture_text
+            
+            # Add REC indicator if in practice mode
+            if is_practicing_speech:
+                cv2.putText(frame, "REC ●", (frame.shape[1] - 100, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+                
+            # Encode frame to JPEG
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
                 continue
-
+                
+            # Yield frame for streaming
             yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n\r\n" +
-                   buf.tobytes() + b"\r\n")
+                  b"Content-Type: image/jpeg\r\n\r\n" + 
+                  buffer.tobytes() + b"\r\n")
+                  
+        except Exception as e:
+            print(f"Error in camera frame generation: {e}")
+            continue  # Continue to the next frame if there's an error
+            
+    # Cleanup when the function exits
     cap.release()
 
 
