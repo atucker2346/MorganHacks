@@ -14,6 +14,7 @@ import sqlite3 # <-- Import SQLite
 from datetime import datetime # <-- Import datetime for timestamps
 import api
 
+
 # --- Configuration ---
 # IMPORTANT: Set these as environment variables for security!
 GOOGLE_API_KEY_FROM_USER = api.GOOGLE_API_KEY_FROM_USER # User's key
@@ -25,7 +26,7 @@ ELEVENLABS_KEY_PLACEHOLDER = "YOUR_ELEVENLABS_API_KEY_HERE"
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", GOOGLE_API_KEY_FROM_USER)
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", ELEVENLABS_API_KEY_FROM_USER)
 
-VOICE_NAME = "Elli"
+VOICE_NAME = "Josh"
 
 # --- Constants ---
 START_PRACTICE_PHRASE = "start practice speech"
@@ -112,7 +113,7 @@ else:
         genai.configure(api_key=GOOGLE_API_KEY)
         gemini_model = genai.GenerativeModel(
             'gemini-1.5-flash',
-            system_instruction="You are a funny, supportive AI study buddy named 'Buddy'. Keep responses concise and friendly."
+            system_instruction="you are a black rapper and want to have a rap battle on the spot. give me a beat."
         )
         print("✅ Google Gemini configured.")
     except Exception as e:
