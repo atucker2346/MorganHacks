@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Practice</title>
+  <!-- Adjust path if your static folder is elsewhere -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+  <header>
+    <h1>Speech Analysis</h1>
+    <nav id="main-nav">
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('practice') }}" class="active">Practice</a>
+      <a href="{{ url_for('history') }}">History</a>
+      <a href="{{ url_for('get_notecards') }}">Notecards</a>
+    </nav>
+  </header>
+
+  <div class="page-container">
+    <section id="live-practice-page" class="page active">
+      <div class="content-row">
+        <!-- 1) Camera Feed -->
+        <div class="glass-box video-area">
+          <img 
+            src="{{ url_for('/camera_feed') }}" 
+            alt="Live camera feed" 
+            style="width:100%; border-radius:12px;"
+          >
+        </div>
+
+        <!-- 2) AI Feedback -->
+        <section class="glass-box feedback-box" aria-labelledby="feedback-heading">
+          <h2 id="feedback-heading">AI Feedback</h2>
+          <div id="computer-messages" class="loading-block">
+            Waiting for feedback…
+          </div>
+        </section>
+      </div>
+
+      <div class="content-row">
+        <!-- 3) Live Transcript -->
+        <section class="glass-box speech-stats" aria-labelledby="transcript-heading">
+          <h2 id="transcript-heading">Your Speech</h2>
+          <textarea 
+            id="user-speech" 
+            rows="6" 
+            readonly
+            style="
+              width:100%; 
+              background:rgba(0,0,0,0.2); 
+              color:var(--text-color);
+              border:1px solid var(--glass-box-border); 
+              border-radius:4px;
+              padding:8px; 
+              font-size:0.9em;
+            "
+          >Waiting for transcript…</textarea>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
+
+  <script>
+    // Poll the backend once a second for new feedback & transcript
+    async function fetchUpdates() {
+      try {
+        const resp = await fetch("/api/latest_practice_data");
+        if (!resp.ok) throw new Error(resp.statusText);
+        const json = await resp.json();
+        document.getElementById("computer-messages").textContent =
+          json.feedback_speech + " | " + json.feedback_posture;
+        document.getElementById("user-speech").value = json.transcript;
+      } catch (e) {
+        console.error("Update error:", e);
+      }
+    }
+    setInterval(fetchUpdates, 1000);
+    // Kick it off immediately
+    fetchUpdates();
+  </script>
+</body>
+</html>

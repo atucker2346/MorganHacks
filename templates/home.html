@@ -25,7 +25,11 @@
                   src="https://my.spline.design/claritystream-vlh8q7RMRQu4axdnwAQYvkKk/"
                   allowfullscreen
                   aria-hidden="true" tabindex="-1" ></iframe>
-                <a class="cta-button" data-page="practice-page">Start Practicing Now</a>
+
+                  <form action="{{ url_for('start_practice') }}" method="post" style="display:inline;">
+                    <button type="submit" class="cta-button">Start Practicing Now</button>
+                  </form>
+            
             </div>
             <section class="features-section">
                 <h3>Key Features</h3>

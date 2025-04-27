@@ -14,6 +14,22 @@ import sqlite3 # <-- Import SQLite
 from datetime import datetime # <-- Import datetime for timestamps
 import api
 
+message_history = []
+
+def add_message(sender, text):
+    global message_history
+    message_history.append({'sender': sender, 'text': text})
+
+    if len(message_history) > 50:
+        message_history.pop(0)
+
+def get_message_history():
+    return message_history
+
+def get_latest_transcript():
+    from Hackathon import speech_practice_data
+    return speech_practice_data.get("text", "")
+
 
 # --- Configuration ---
 # IMPORTANT: Set these as environment variables for security!
@@ -26,7 +42,7 @@ ELEVENLABS_KEY_PLACEHOLDER = "YOUR_ELEVENLABS_API_KEY_HERE"
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", GOOGLE_API_KEY_FROM_USER)
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", ELEVENLABS_API_KEY_FROM_USER)
 
-VOICE_NAME = "Josh"
+VOICE_NAME = "Elli"
 
 # --- Constants ---
 START_PRACTICE_PHRASE = "start practice speech"
@@ -112,8 +128,8 @@ else:
         print(f"### DEBUG ###: Attempting Gemini config with key ending ...{GOOGLE_API_KEY[-4:]}")
         genai.configure(api_key=GOOGLE_API_KEY)
         gemini_model = genai.GenerativeModel(
-            'gemini-1.5-flash',
-            system_instruction="you are a black rapper and want to have a rap battle on the spot. give me a beat."
+            'gemini-2.0-flash',
+            system_instruction="You are a funny, supportive AI study buddy named 'Buddy'. Keep responses concise and friendly."
         )
         print("✅ Google Gemini configured.")
     except Exception as e:
@@ -167,6 +183,7 @@ def speak(text):
         print("   [3] Attempting to call play(audio_stream)...")
         try:
             play(audio_stream)
+            add_message('computer', text)
             print("   [4] Returned from play(). Playback likely started.")
         except Exception as play_error: print(f"   ❌❌ ERROR DURING play(): {play_error}"); print(f"   ❌❌ This often means 'ffplay' or 'mpv' is not installed or not in your system PATH.")
     except Exception as generate_error:
@@ -299,6 +316,7 @@ def recognize_speech():
         try:
             with mic as source: audio = r.listen(source, phrase_time_limit=phrase_limit, timeout=phrase_timeout)
             print("   👂 Processing..."); recognized_text = r.recognize_google(audio); print(f"   👂 Heard: '{recognized_text}'"); recognized_text_lower = recognized_text.lower()
+            add_message('user', recognized_text)
             if is_practicing_speech: # Practice Mode
                 print("### DEBUG ###: In Practice Mode Branch")
                 if END_PRACTICE_PHRASE in recognized_text_lower: print("   🛑 Ending practice..."); is_practicing_speech = False; speak("Okay, ending practice..."); analyze_and_feedback(); speech_practice_data = {"text": "", "start_time": None}
@@ -360,6 +378,85 @@ def show_camera():
     print(f"### DEBUG ###: Exited camera loop ({loop_count} iter)."); print("--- 🎥 Releasing Cam ---"); cap.release(); print("### DEBUG ###: cap.release() done.")
     cv2.destroyAllWindows(); print("### DEBUG ###: destroyAllWindows() done."); time.sleep(0.1); cv2.waitKey(1); print("### DEBUG ###: Extra waitKey done.")
 
+def run_camera_feed():
+    """Background thread: capture video frames, run pose detection, and store frames for streaming."""
+    global latest_frame, last_ai_message
+    cap = cv2.VideoCapture(0)  # open default camera
+    if not cap.isOpened():
+        print("❌ Camera failed to open")
+        main_thread_should_stop = True
+        return
+    while not main_thread_should_stop:
+        ret, frame = cap.read()
+        if not ret:
+            continue  # skip if frame read failed
+        # Perform pose detection (using MediaPipe Pose from hackathon.py)
+        try:
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_rgb.flags.writeable = False
+            results = pose.process(frame_rgb)   # use the global pose model
+            frame_rgb.flags.writeable = True
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            # Determine posture status
+            posture_text = "Posture: No user detected"
+            if results and results.pose_landmarks:
+                posture_text = analyze_posture(results.pose_landmarks)
+                # Draw landmarks on frame for visual feedback
+                mp_drawing.draw_landmarks(
+                    frame_bgr, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
+                    mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
+                    mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
+                )
+            # Update global posture status (thread-safe)
+            with posture_lock:
+                current_posture_status = posture_text
+            # Overlay posture text and REC indicator on frame
+            cv2.putText(frame_bgr, posture_text, (10,30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2, cv2.LINE_AA)
+            if is_practicing_speech:
+                cv2.putText(frame_bgr, "REC ●", (frame_bgr.shape[1]-80, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 2, cv2.LINE_AA)
+        except Exception as e:
+            print(f"❌ Error in camera thread: {e}")
+            continue
+
+        # Encode frame to JPEG
+        ret, buffer = cv2.imencode('.jpg', frame_bgr)
+        if not ret:
+            continue
+        frame_bytes = buffer.tobytes()
+        # Store the latest frame in a global variable (with a lock for thread safety)
+        with frame_lock:
+            latest_frame = frame_bytes
+    # Cleanup when loop exits
+    cap.release()
+    print("Camera thread terminating.")
+
+def gen_camera_frames():
+    cap = cv2.VideoCapture(0)
+    with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # do MediaPipe pose processing and annotate 'frame'...
+            # e.g.:
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = pose.process(frame_rgb)
+            # draw landmarks …
+            # overlay posture text …
+
+            # encode as JPEG
+            ret2, buf = cv2.imencode(".jpg", frame)
+            if not ret2:
+                continue
+
+            yield (b"--frame\r\n"
+                   b"Content-Type: image/jpeg\r\n\r\n" +
+                   buf.tobytes() + b"\r\n")
+    cap.release()
+
 
 # --- Main Execution ---
 if __name__ == "__main__":
@@ -386,25 +483,53 @@ if __name__ == "__main__":
         print("🔴 Speech recognition thread NOT started (no microphone).")
 
 
-    # --- Run Camera Display in Main Thread ---
-    print("### DEBUG ###: Checking if MediaPipe Pose object exists before calling show_camera.")
-    if pose:
-        print("### DEBUG ###: MediaPipe Pose object exists. Calling show_camera() in main thread.")
-        show_camera() # Run camera in main thread
-        print("### DEBUG ###: Returned from show_camera() call.")
-    else:
-        print("🔴 Camera display skipped (MediaPipe Pose failed).")
-        if mic_available and speech_thread:
-             print("ℹ️ Running in audio-only mode. Say 'stop' to exit.")
-             while not main_thread_should_stop and speech_thread and speech_thread.is_alive():
-                  try: time.sleep(0.5)
-                  except KeyboardInterrupt: print("\nCtrl+C detected. Stopping."); main_thread_should_stop = True
-             if speech_thread: speech_thread.join(timeout=1.0)
-        else:
-             speak("Both microphone and camera components failed. Exiting.")
-             if 'sys' not in locals(): import sys # Make sure sys is imported
-             sys.exit(1)
+    # # --- Run Camera Display in Main Thread ---
+    # print("### DEBUG ###: Checking if MediaPipe Pose object exists before calling show_camera.")
+    # if pose:
+    #     print("### DEBUG ###: MediaPipe Pose object exists. Calling show_camera() in main thread.")
+    #     show_camera() # Run camera in main thread
+    #     print("### DEBUG ###: Returned from show_camera() call.")
+    # else:
+    #     print("🔴 Camera display skipped (MediaPipe Pose failed).")
+    #     if mic_available and speech_thread:
+    #          print("ℹ️ Running in audio-only mode. Say 'stop' to exit.")
+    #          while not main_thread_should_stop and speech_thread and speech_thread.is_alive():
+    #               try: time.sleep(0.5)
+    #               except KeyboardInterrupt: print("\nCtrl+C detected. Stopping."); main_thread_should_stop = True
+    #          if speech_thread: speech_thread.join(timeout=1.0)
+    #     else:
+    #          speak("Both microphone and camera components failed. Exiting.")
+    #          if 'sys' not in locals(): import sys # Make sure sys is imported
+    #          sys.exit(1)
 
+def generate_video_frames():
+    import cv2, threading
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, frame = cap.read(0)
+        if not ret:
+            continue
+        from Hackathon import pose, mp_pose, analyze_posture, posture_lock, current_posture_status
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BAYER_BGR2RGB)
+        results = pose.process(rgb) if pose else None
+        if results and results.pose_landmarks:
+            posture = analyze_posture(results.pose_landmarks)
+            with posture_lock:
+                current_posture_status = posture
+            #draw onf frame
+            import mediapipe as mp
+            mp.solutions.drawing_utils.draw_landmarks(
+                frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
+            )
+
+        ret, buffer = cv2.imencode('jpeg', frame)
+        frame_bytes = buffer.tobytes()
+        yield(b'--frame\r\n'
+            b'Content-Type: image?jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+    cap.release()
+
+    
 
     # --- Final Cleanup ---
     print("\n--- Shutting Down ---")

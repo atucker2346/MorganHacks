@@ -876,3 +876,47 @@ footer {
         margin-bottom: 10px;
     }
 }
+
+.chat-box {
+    flex-basis: calc(40% - 15px);
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .message {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    max-width: 90%;
+  }
+  .message.computer {
+    background: rgba(147,112,219,0.2);
+    align-self: flex-start;
+  }
+  .message.user {
+    background: rgba(0,191,255,0.2);
+    align-self: flex-end;
+  }
+  .message-text {
+    color: var(--text-color);
+  }
+  
+  /* Chat‐box & bubbles */
+.message {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    max-width: 90%;
+  }
+  .message.computer {
+    background: rgba(147,112,219,0.2);
+    align-self: flex-start;
+  }
+  .message.user {
+    background: rgba(0,191,255,0.2);
+    align-self: flex-end;
+  }
+  .message-text {
+    color: var(--text-color);
+  }
+  
