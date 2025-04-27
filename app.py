@@ -1,10 +1,16 @@
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template, send_from_directory, Response, redirect, url_for
 import sqlite3
 import os
 import json
 from datetime import datetime
 import threading
-import Hackathon
+import Hackathon as hack
+import time
+
+latest_frame = None
+frame_lock = threading.Lock()
+last_ai_message = ''
+
 
 app = Flask(__name__)
 
@@ -27,9 +33,9 @@ def send_static(path):
 def home():
     return render_template('home.html')
 
-@app.route('/practice.html')
+@app.route('/practice')
 def practice():
-    return render_template('practice.html')
+    return render_template('practice.html.html')
 
 @app.route('/history.html')
 def history():
@@ -38,6 +44,47 @@ def history():
 @app.route('/notes.html')
 def notes():
     return render_template('notes.html')
+
+@app.route('/live_practice')
+def live_practice():
+    return render_template("live_practice.html")
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(
+        hack.generate_video_frames(),
+        minetype='multipart/x-mixed-replace; boundary=frame'
+    )
+
+@app.route('/start-practice', methods=['POST'])
+def start_practice():
+    """Launch background threads for camera and mic, then redirect to live practice page."""
+    # Reset stop flag and start practice mode
+    hack.main_thread_should_stop = False
+    hack.is_practicing_speech = True
+    hack.speech_practice_data = {"text": "", "start_time": time.time()}  # start transcript
+    last_ai_message = "Practice started! Speak freely..."  # initial AI message
+
+    # Start camera thread (for video capture & pose)
+    cam_thread = threading.Thread(target=hack.run_camera_feed, daemon=True)
+    cam_thread.start()
+
+    # Start speech recognition thread
+    mic_thread = threading.Thread(target=hack.recognize_speech, daemon=True)
+    mic_thread.start()
+
+    # Optionally, have the AI verbally acknowledge (if TTS is enabled)
+    # hack.speak("Got it! Practice mode on...")  # will also be captured in last_ai_message if speak() is patched
+
+    # Redirect to the live practice page
+    return redirect(url_for('live_practice'))
+
+@app.route("/camera_feed")
+def camera_feed():
+    return Response(
+        hack.gen_camera_frames(),
+        mimetype="multipart/x-mixed-replace; boundary=frame"
+    )
 
 # API Routes
 @app.route('/api/latest_practice_data')
@@ -95,11 +142,6 @@ def get_latest_practice_data():
             'success': False,
             'error': f'Unexpected server error: {e}'
         }), 500
-
-@app.route("/start-practice", methods=["POST"])
-def start_practice():
-    threading.Thread(target=Hackathon.main).start()
-    return jsonify({"status": "started"})
 
 @app.route('/api/speech_history')
 def get_speech_history():

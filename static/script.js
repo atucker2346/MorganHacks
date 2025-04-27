@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
         startButton.addEventListener("click", async e => {
             e.preventDefault();
             await fetch("/start-practice", { method: "POST", headers: { "Content-Type": "application/json" } });
-            showPage("practice-page", true);
+            window.location = "/live-practice";
         });
         }
 
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
     startButton.addEventListener("click", async e => {
         e.preventDefault();
         await fetch("/start-practice", { method: "POST" });
-        showPage("practice-page", true);
+        window.location = "/live-practice";
     });
     }
 
