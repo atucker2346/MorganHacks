@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech Analysis - Practice</title>
     <link rel="stylesheet" href="../static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
         <h1>Speech Analysis</h1>
         <nav id="main-nav">
             <a href="home.html">Home</a>
-            <a href="#practice" class="active">Practice</a>
+            <a href="practice.html" class="active">Practice</a>
             <a href="history.html">History</a>
             <a href="notes.html">Notecards</a>
         </nav>
@@ -64,16 +65,6 @@
     <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
 
     <script src="../static/main.js"></script>
-    <script>
-        // Execute when DOM is fully loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Directly call the fetch function since we're on the practice page
-            if (typeof fetchAndUpdatePracticeData === 'function') {
-                fetchAndUpdatePracticeData();
-            } else {
-                console.error('fetchAndUpdatePracticeData function not found. Check if main.js is loaded correctly.');
-            }
-        });
-    </script>
+    <script src="../static/script.js"></script>
 </body>
 </html>
