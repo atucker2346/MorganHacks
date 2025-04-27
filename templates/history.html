@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech Analysis - History</title>
     <link rel="stylesheet" href="../static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
@@ -12,7 +13,7 @@
         <nav id="main-nav">
             <a href="home.html">Home</a>
             <a href="practice.html">Practice</a>
-            <a href="#history" class="active">History</a>
+            <a href="history.html" class="active">History</a>
             <a href="notes.html">Notecards</a>
         </nav>
     </header>
@@ -21,6 +22,20 @@
         <section id="history-page" class="page active">
             <main>
                 <div class="content-row">
+
+                    <section class="glass-box speech-analytics" aria-labelledby="analytics-heading">
+                        <h2 id="analytics-heading">ANALYTICS</h2>
+                        <div id="analytics-container">
+                            <div class="chart-container">
+                                <canvas id="wpm-chart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="filler-chart"></canvas>
+                            </div>
+                            <p class="instruction-text">Select a speech to view analytics</p>
+                        </div>
+                    </section>
+
                     <section class="glass-box full-width" aria-labelledby="history-heading">
                         <h2 id="history-heading">SPEECH HISTORY</h2>
                         <div class="search-container">
@@ -54,6 +69,7 @@
     <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
 
     <script src="../static/main.js"></script>
+    <script src="../static/script.js"></script>
     <script>
         // Execute when DOM is fully loaded
         document.addEventListener('DOMContentLoaded', function() {

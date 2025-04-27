@@ -10,10 +10,10 @@
     <header>
         <h1>Speech Analysis</h1>
         <nav id="main-nav">
-            <a href="#home" data-page="home-page" class="active">Home</a>
-            <a href="practice.html" data-page="practice-page">Practice</a>
-            <a href="history.html" data-page="history-page">History</a>
-            <a href="notes.html" data-page="save-note-page">Notecards</a>
+            <a href="home.html" class="active">Home</a>
+            <a href="practice.html">Practice</a>
+            <a href="history.html" >History</a>
+            <a href="notes.html" >Notecards</a>
         </nav>
     </header>
 
@@ -25,7 +25,7 @@
                   src="https://my.spline.design/claritystream-vlh8q7RMRQu4axdnwAQYvkKk/"
                   allowfullscreen
                   aria-hidden="true" tabindex="-1" ></iframe>
-                <a href="#practice" class="cta-button" data-page="practice-page">Start Practicing Now</a>
+                <a class="cta-button" data-page="practice-page">Start Practicing Now</a>
             </div>
             <section class="features-section">
                 <h3>Key Features</h3>
@@ -37,64 +37,9 @@
             </section>
         </section>
 
-        <section id="practice-page" class="page">
-            <main>
-                <div class="content-row">
-                    <div class="glass-box video-area" aria-label="Live Video Feed Placeholder">
-                        <span id="video-placeholder-icon">🎤</span> </div>
-                    <section class="glass-box feedback-box" aria-labelledby="feedback-heading">
-                        <h2 id="feedback-heading">FEEDBACK</h2>
-                        <div id="feedback-content">
-                             <p class="loading-block">Waiting for practice data...</p>
-                        </div>
-                    </section>
-                </div>
-                <div class="content-row">
-                    <section class="glass-box speech-stats" aria-labelledby="stats-heading">
-                        <h2 id="stats-heading">SPEECH STATISTICS</h2>
-                        <ul>
-                            <li>WPM: <span id="wpm-value" class="loading-text">(...)</span></li>
-                            <li>Pacing: <span id="pacing-value" class="loading-text">(...)</span></li>
-                            <li>Filler words: <span id="filler-count" class="loading-text">(...)</span></li>
-                        </ul>
-                        <p style="margin-top: 15px; font-weight: bold;">Transcript:</p>
-                        <textarea id="transcript-display" rows="5" readonly style="width: 100%; background: rgba(0,0,0,0.2); color: var(--text-color); border: 1px solid var(--glass-box-border); border-radius: 4px; padding: 8px; margin-top: 5px; font-size: 0.9em; resize: vertical;"></textarea>
-                    </section>
-                     <section class="glass-box tips-improvement" aria-labelledby="tips-heading">
-                        <div>
-                            <h2 id="tips-heading">TIPS FOR IMPROVEMENT</h2>
-                            <ul id="tips-list">
-                                <li class="loading-block">Waiting for tips...</li>
-                            </ul>
-                        </div>
-                        <button class="save-button" id="saveSpeechButton" disabled>SAVE SPEECH (Coming Soon)</button>
-                    </section>
-                    <section class="glass-box generated-notes" aria-labelledby="notes-heading">
-                        <h2 id="notes-heading">GENERATED NOTE CARDS</h2>
-                        <div id="notes-list">
-                            <p class="loading-block">Waiting for notes...</p>
-                            </div>
-                    </section>
-                </div>
-            </main>
-        </section>
-
-        <section id="history-page" class="page">
-             <div>
-                 <h2>History Page</h2>
-                 <p>Your past practice sessions will be listed here. Review your progress, identify patterns, and see how far you've come! (This feature requires database integration on the backend.)</p>
-                 </div>
-        </section>
-        <section id="save-note-page" class="page">
-             <div>
-                <h2>Save Note Page</h2>
-                <p>This section will allow you to manage and review the note cards generated during your practice sessions. (This feature requires database integration on the backend.)</p>
-                </div>
-        </section>
-    </div>
-
     <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
 
-    <script src="../static/main.js"></script>
+        <script src="../static/main.js"></script>
+    <script src="../static/script.js"></script>
 </body>
 </html>
