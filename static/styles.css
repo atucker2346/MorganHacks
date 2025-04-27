@@ -1,0 +1,400 @@
+/* --- Global Styles & Variables --- */
+:root {
+    --page-bg-color: #000; /* Black background for content sections and body */
+    --primary-purple: #8a2be2; /* Blue Violet */
+    --light-purple: #9370db; /* Medium Purple */
+    --text-color: #f0f0f0;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --box-bg: rgba(40, 40, 40, 0.3); /* Slightly transparent dark bg for feature items */
+    --glass-box-bg: rgba(138, 43, 226, 0.1); /* More transparent purple for glass boxes */
+    --glass-box-border: rgba(147, 112, 219, 0.5); /* Semi-transparent purple border */
+    --blur-amount: 8px;
+    --border-radius: 12px;
+    --content-max-width: 1200px; /* Retained for centering specific grids/content */
+    --readable-text-max-width: 800px; /* Max width for text paragraphs */
+    --glow-color: rgba(147, 112, 219, 0.5); /* Light purple glow */
+    --text-glow-color: rgba(147, 112, 219, 0.7); /* Slightly stronger purple for text glow */
+}
+
+/* Basic reset and box-sizing */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+     scroll-behavior: smooth; /* Optional: smooth scrolling */
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    background-color: var(--page-bg-color); /* Changed body background to black */
+    color: var(--text-color);
+    line-height: 1.6;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden; /* Still prevent horizontal scroll */
+}
+
+/* --- Header Styles --- */
+header {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+    padding: 15px 3%; /* Adjusted padding */
+    border-bottom: 1px solid var(--primary-purple);
+    background-color: rgba(26, 26, 26, 0.8); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+    position: sticky; top: 0; z-index: 100; width: 100%;
+}
+header h1 { font-size: 1.8em; color: var(--primary-purple); text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+header nav { margin: 0; }
+header nav a { color: var(--text-color); text-decoration: none; margin-left: 25px; font-size: 1.1em; transition: color 0.3s ease; padding: 5px 0; border-bottom: 2px solid transparent; }
+header nav a:hover, header nav a:focus { color: var(--light-purple); outline: none; }
+header nav a.active { color: var(--light-purple); border-bottom-color: var(--light-purple); font-weight: bold; }
+
+/* --- Page Container --- */
+.page-container {
+    width: 100%;
+    margin: 0 auto;
+    padding: 0; /* Sections handle padding */
+    flex-grow: 1;
+}
+
+/* --- Page Section Styling --- */
+.page {
+    display: none;
+    padding-top: 30px; /* Add padding to top of pages */
+    padding-left: 3%; /* Add side padding to pages */
+    padding-right: 3%; /* Add side padding to pages */
+}
+.page.active { display: block; }
+/* Set black background for page content areas, except home */
+#practice-page, #history-page, #save-note-page {
+     background-color: var(--page-bg-color);
+     padding-bottom: 40px; /* Add padding at the bottom */
+     margin-top: -1px; /* Prevent potential margin collapse issues */
+}
+/* Remove top padding from home page as hero section handles it */
+#home-page { padding-top: 0; padding-left: 0; padding-right: 0; }
+
+/* --- Home Page Specific Styles --- */
+#home-page { text-align: center; }
+
+/* Hero Section (Welcome + Animation) - Stays full width */
+.hero-section {
+    position: relative; /* Needed for absolute positioning of iframe */
+    padding: 80px 3% 60px; /* Use percentage padding */
+    height: 100vh; /* Make hero section full viewport height */
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    overflow: hidden; /* Important to contain the iframe */
+    background-color: #111; /* Fallback background */
+}
+
+/* --- Spline iframe Container --- */
+.spline-iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    z-index: 0; /* Behind the content */
+    opacity: 0.85; /* Slightly reduced opacity */
+    /* --- Scrolling Fix --- */
+    pointer-events: none;
+}
+
+/* Ensure content is above the spline iframe */
+#home-page .hero-section .cta-button {
+    position: relative;
+    z-index: 1; /* Keep content above spline iframe (z-index 0) */
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.6); /* Added shadow for readability */
+    margin-top: 30px; /* Added margin to move button down */
+}
+
+/* --- Glassy CTA Button --- */
+.cta-button {
+    display: inline-block;
+    padding: 15px 35px;
+    background-color: var(--glass-box-bg); /* Use glassy background variable */
+    color: var(--text-color);
+    border: 1px solid var(--border-color); /* Add subtle border */
+    border-radius: var(--border-radius); /* Use consistent border radius */
+    font-size: 1.2em;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(var(--blur-amount)); /* Apply blur */
+    -webkit-backdrop-filter: blur(var(--blur-amount)); /* Apply blur for Safari */
+    /* Updated transition to include box-shadow */
+    transition: background-color 0.3s ease, transform 0.1s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cta-button:hover, .cta-button:focus {
+    background-color: rgba(147, 112, 219, 0.4); /* Slightly less transparent light purple on hover */
+    border-color: rgba(255, 255, 255, 0.4); /* Slightly brighter border on hover */
+    outline: none; /* Remove default focus outline */
+    transform: scale(1.05);
+    /* Added box-shadow for glow effect */
+    box-shadow: 0 0 15px 5px var(--glow-color);
+}
+
+.cta-button:active {
+    transform: scale(0.98);
+    box-shadow: none; /* Optional: remove glow on active click */
+}
+
+/* Features Section */
+.features-section {
+    padding: 60px 3%; /* Use percentage padding */
+    background-color: var(--page-bg-color); /* Changed background to black */
+    min-height: 50vh; /* Ensure it has some height */
+}
+.features-section h3 {
+    text-align: center;
+    font-size: 2em;
+    color: var(--light-purple);
+    margin-bottom: 40px;
+    /* Added text glow */
+    text-shadow: 0 0 8px var(--text-glow-color);
+}
+/* Keep the grid itself centered and max-width */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    max-width: var(--content-max-width); /* Apply max-width here */
+    margin: 0 auto; /* Center the grid within the full-width section */
+}
+.feature-item {
+    background: var(--box-bg);
+    padding: 25px;
+    border-radius: var(--border-radius);
+    text-align: center;
+    border: 1px solid var(--primary-purple); /* Use primary purple for border */
+    backdrop-filter: blur(var(--blur-amount));
+    -webkit-backdrop-filter: blur(var(--blur-amount));
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Added box-shadow transition */
+}
+.feature-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(138, 43, 226, 0.3); /* Add purple glow on hover */
+}
+.feature-icon { font-size: 2.5em; color: var(--primary-purple); margin-bottom: 15px; display: inline-block; width: 50px; height: 50px; line-height: 50px; border: 1px solid var(--primary-purple); border-radius: 50%; }
+.feature-item h4 {
+    font-size: 1.3em;
+    color: var(--light-purple);
+    margin-bottom: 10px;
+    /* Added text glow */
+    text-shadow: 0 0 6px var(--text-glow-color);
+}
+.feature-item p { font-size: 1em; color: var(--text-color); opacity: 0.9; }
+
+/* --- Practice Page Styles --- */
+/* Apply max-width to the main content area of practice page */
+#practice-page main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px; /* Increased gap between rows */
+    max-width: var(--content-max-width); /* Center content */
+    margin: 0 auto; /* Center the main content */
+}
+.content-row { display: flex; flex-wrap: wrap; gap: 30px; /* Increased gap between columns */ }
+/* Updated glass-box styles for practice page */
+.glass-box {
+    border-radius: var(--border-radius);
+    padding: 30px; /* Increased padding */
+    border: 1px solid var(--glass-box-border); /* Use semi-transparent purple border */
+    background: var(--glass-box-bg); /* Use glassy purple background */
+    backdrop-filter: blur(var(--blur-amount));
+    -webkit-backdrop-filter: blur(var(--blur-amount));
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    flex-grow: 1;
+    min-width: 280px; /* Keep minimum width */
+}
+/* Add glow to Practice Page section headings */
+.glass-box h2 {
+    color: var(--light-purple);
+    margin-top: 0;
+    margin-bottom: 20px; /* Increased margin */
+    border-bottom: 1px solid var(--glass-box-border);
+    padding-bottom: 10px; /* Increased padding */
+    text-align: center;
+    font-size: 1.4em; /* Slightly larger heading */
+    text-shadow: 0 0 6px var(--text-glow-color); /* Added glow */
+}
+.video-area { flex-basis: calc(60% - 15px); display: flex; justify-content: center; align-items: center; min-height: 350px; /* Increased min-height */ font-size: 5em; color: rgba(255, 255, 255, 0.3); background-color: rgba(0,0,0,0.2); border-radius: var(--border-radius); border: 1px solid var(--glass-box-border); /* Added border to video area */ }
+.feedback-box { flex-basis: calc(40% - 15px); min-height: 350px; /* Increased min-height */ }
+/* Added min-height to bottom row boxes */
+.speech-stats, .tips-improvement, .generated-notes {
+    flex-basis: calc(33.333% - 20px); /* Adjusted basis for increased gap */
+    min-height: 250px; /* Added minimum height */
+    display: flex; /* Use flexbox for vertical alignment if needed */
+    flex-direction: column;
+}
+.tips-improvement { justify-content: space-between; } /* Keep button at bottom */
+
+ul { list-style: none; padding-left: 0; margin-bottom: 15px; /* Add some space below lists */ }
+li { margin-bottom: 12px; /* Slightly increase spacing */ padding-left: 20px; position: relative; font-size: 1.05em; /* Slightly larger list text */}
+li::before { content: '•'; color: var(--primary-purple); font-weight: bold; display: inline-block; width: 1em; margin-left: -1.2em; position: absolute; left: 10px; }
+
+/* Style specific list items */
+#feedback-content p { margin-bottom: 10px; }
+#tips-list li { margin-bottom: 8px; }
+#notes-list .note-text {
+     white-space: normal; /* Allow text wrapping */
+     word-wrap: break-word; /* Break long words */
+     height: auto; /* Allow height to adjust */
+     min-height: 30px; /* Keep minimum height */
+     background: none; /* Remove the line background */
+     padding: 5px 0;
+     font-size: 0.95em; /* Adjust note text size if needed */
+}
+.note-card {
+    min-height: 50px; /* Ensure note card has some base height */
+    align-items: flex-start; /* Align icon to top */
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+.note-icon { margin-top: 3px; } /* Align icon better with first line of text */
+
+/* Style Save button */
+.save-button {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    background-color: var(--primary-purple);
+    color: var(--text-color);
+    border: none; /* Removed border */
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    margin-top: auto; /* Pushes button to bottom in flex container */
+    transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease; /* Added box-shadow transition */
+}
+.save-button:hover:not(:disabled), .save-button:focus:not(:disabled) {
+    background-color: var(--light-purple);
+    outline: none; /* Remove default focus outline */
+    box-shadow: 0 0 12px 4px var(--glow-color); /* Added glow */
+}
+.save-button:active:not(:disabled) {
+    transform: scale(0.98);
+    box-shadow: none; /* Remove glow on click */
+}
+.save-button:disabled {
+     background-color: #555; /* Grey out when disabled */
+     cursor: not-allowed;
+     opacity: 0.7;
+}
+
+.note-card { display: flex; background: rgba(0, 0, 0, 0.2); padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px solid var(--glass-box-border); }
+.note-icon { width: 30px; height: 30px; flex-shrink: 0; border: 1px solid var(--glass-box-border); margin-right: 15px; display: flex; justify-content: center; align-items: center; color: var(--light-purple); font-size: 1.5em; line-height: 1; }
+.note-text { flex-grow: 1; } /* Removed fixed height and background lines */
+
+/* History & Save Note Pages */
+ #history-page h2, #save-note-page h2 {
+     text-align: center;
+     color: var(--light-purple);
+     text-shadow: 0 0 8px var(--text-glow-color); /* Added glow */
+     margin-bottom: 20px; /* Added margin */
+ }
+ #history-page p, #save-note-page p {
+     text-align: center;
+     max-width: var(--readable-text-max-width); /* Limit width */
+     margin: 0 auto 20px auto; /* Center paragraph and add bottom margin */
+     opacity: 0.8; /* Slightly fade text */
+ }
+
+ /* Style for loading state */
+.loading-text {
+    font-style: italic;
+    color: var(--light-purple);
+    opacity: 0.7;
+    display: inline; /* Ensure it's visible */
+}
+.loading-block { /* For paragraph/list placeholders */
+    font-style: italic;
+    color: var(--light-purple);
+    opacity: 0.7;
+    display: block; /* Ensure it's visible */
+    margin-bottom: 10px;
+}
+
+/* --- Footer --- */
+footer {
+    text-align: center;
+    padding: 20px 3%; /* Use percentage padding */
+    margin-top: 40px;
+    color: var(--light-purple); /* Use light purple for footer text */
+    font-size: 0.9em;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--page-bg-color); /* Match page background */
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 900px) { 
+    .content-row { gap: 20px; } 
+    .video-area, .feedback-box, .speech-stats, .tips-improvement, .generated-notes { 
+        flex-basis: 100%; 
+        min-width: 0; 
+        min-height: auto; /* Remove fixed min-height for stacking */ 
+    } 
+    .video-area { min-height: 300px; } /* Keep video area reasonably sized */ 
+    .features-grid { grid-template-columns: 1fr; } 
+}
+
+@media (max-width: 768px) { 
+    header { 
+        flex-direction: column; 
+        align-items: flex-start; 
+        padding: 15px 5%; 
+    } 
+    header h1 { margin-bottom: 10px; } 
+    header nav { margin-left: -25px; margin-bottom: 5px; } 
+    header nav a { margin-left: 25px; font-size: 1em; } 
+    .cta-button { font-size: 1.1em; padding: 12px 25px; } 
+    .features-section h3 { font-size: 1.8em; } 
+    #practice-page, #history-page, #save-note-page { 
+        padding-top: 20px; 
+        padding-bottom: 30px; 
+        padding-left: 5%; 
+        padding-right: 5%; 
+    } 
+    .page {padding-left: 5%; padding-right: 5%;} 
+    .hero-section {
+        padding: 80px 5% 60px; 
+        min-height: auto; 
+        height: auto;
+    } /* Adjust hero height on smaller screens */ 
+    .features-section {padding: 60px 5%;} 
+    footer {padding: 20px 5%;} 
+    .glass-box { padding: 20px; } 
+    .glass-box h2 { font-size: 1.3em; } 
+}
+
+@media (max-width: 480px) { 
+    .page-container { padding: 0; } 
+    header { padding: 10px 15px; } 
+    header h1 { font-size: 1.5em; } 
+    .glass-box { padding: 15px; } 
+    .glass-box h2 { font-size: 1.1em; } 
+    .video-area { min-height: 200px; font-size: 3em; } 
+    li { font-size: 0.95em; } 
+    .save-button { padding: 10px 15px; font-size: 0.95em; } 
+    .note-icon { width: 25px; height: 25px; font-size: 1.2em; margin-right: 10px; } 
+    .note-text { height: auto; background: none; } 
+    .hero-section { padding: 60px 15px 40px; } 
+    .cta-button { font-size: 1em; padding: 10px 20px; } 
+    .features-section { padding: 40px 15px; } 
+    .features-section h3 { font-size: 1.6em; } 
+    .feature-item h4 { font-size: 1.1em; } 
+    .feature-item p { font-size: 0.9em; } 
+    footer { font-size: 0.8em; margin-top: 20px; padding: 20px 15px; } 
+    #practice-page, #history-page, #save-note-page { 
+        padding-top: 15px; 
+        padding-bottom: 25px; 
+        padding-left: 15px; 
+        padding-right: 15px; 
+    } 
+    .page {padding-left: 15px; padding-right: 15px;} 
+}
