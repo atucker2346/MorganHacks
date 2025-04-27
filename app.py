@@ -33,9 +33,9 @@ def send_static(path):
 def home():
     return render_template('home.html')
 
-@app.route('/practice')
+@app.route('/practice.html')
 def practice():
-    return render_template('practice.html.html')
+    return render_template('practice.html')
 
 @app.route('/history.html')
 def history():
@@ -45,7 +45,7 @@ def history():
 def notes():
     return render_template('notes.html')
 
-@app.route('/live_practice')
+@app.route('/live-practice')
 def live_practice():
     return render_template("live_practice.html")
 

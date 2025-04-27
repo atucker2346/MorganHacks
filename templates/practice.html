@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech Analysis - Practice</title>
-    <link rel="stylesheet" href="../static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
         <h1>Speech Analysis</h1>
         <nav id="main-nav">
-            <a href="home.html">Home</a>
-            <a href="practice.html" class="active">Practice</a>
-            <a href="history.html">History</a>
-            <a href="notes.html">Notecards</a>
+            <a href="/">Home</a>
+            <a href="/practice" class="active">Practice</a>
+            <a href="/history.html">History</a>
+            <a href="/notes.html">Notecards</a>
         </nav>
     </header>
 
@@ -23,12 +23,13 @@
             <main>
                 <div class="content-row">
                     <div class="glass-box video-area" aria-label="Live Video Feed Placeholder">
-                        <span id="video-placeholder-icon">🎤</span> </div>
+                        <span id="video-placeholder-icon">🎤</span>
+                        </div>
                     <section class="glass-box feedback-box" aria-labelledby="feedback-heading">
                         <h2 id="feedback-heading">FEEDBACK</h2>
                         <div id="feedback-content">
                              <p class="loading-block">Waiting for practice data...</p>
-                        </div>
+                             </div>
                     </section>
                 </div>
                 <div class="content-row">
@@ -47,7 +48,7 @@
                             <h2 id="tips-heading">TIPS FOR IMPROVEMENT</h2>
                             <ul id="tips-list">
                                 <li class="loading-block">Waiting for tips...</li>
-                            </ul>
+                                </ul>
                         </div>
                         <button class="save-button" id="saveSpeechButton" disabled>SAVE SPEECH (Coming Soon)</button>
                     </section>
@@ -55,7 +56,7 @@
                         <h2 id="notes-heading">GENERATED NOTE CARDS</h2>
                         <div id="notes-list">
                             <p class="loading-block">Waiting for notes...</p>
-                        </div>
+                             </div>
                     </section>
                 </div>
             </main>
@@ -64,7 +65,7 @@
 
     <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
 
-    <script src="../static/main.js"></script>
-    <script src="../static/script.js"></script>
+    <script src="/static/main.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
