@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Analysis - History</title>
+    <link rel="stylesheet" href="../static/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Speech Analysis</h1>
+        <nav id="main-nav">
+            <a href="home.html">Home</a>
+            <a href="practice.html">Practice</a>
+            <a href="#history" class="active">History</a>
+            <a href="notes.html">Notecards</a>
+        </nav>
+    </header>
+
+    <div class="page-container">
+        <section id="history-page" class="page active">
+            <main>
+                <div class="content-row">
+                    <section class="glass-box full-width" aria-labelledby="history-heading">
+                        <h2 id="history-heading">SPEECH HISTORY</h2>
+                        <div class="search-container">
+                            <input type="text" id="history-search" placeholder="Search by date or topic...">
+                            <button id="search-history-button">Search</button>
+                            <select id="sort-history">
+                                <option value="date-desc">Newest First</option>
+                                <option value="date-asc">Oldest First</option>
+                                <option value="duration-desc">Longest First</option>
+                                <option value="duration-asc">Shortest First</option>
+                            </select>
+                        </div>
+                        <div id="history-container">
+                            <!-- History items will be dynamically populated here -->
+                            <p class="loading-block">Loading your speech history...</p>
+                        </div>
+                    </section>
+                </div>
+                <div class="content-row">
+                    <section class="glass-box speech-details" aria-labelledby="details-heading">
+                        <h2 id="details-heading">SPEECH DETAILS</h2>
+                        <div id="speech-details-container">
+                            <p class="instruction-text">Select a speech from your history to view details</p>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </section>
+    </div>
+
+    <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
+
+    <script src="../static/main.js"></script>
+    <script>
+        // Execute when DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Call the function to load speech history if it exists
+            if (typeof loadSpeechHistory === 'function') {
+                loadSpeechHistory();
+            } else {
+                console.error('loadSpeechHistory function not found. Check if main.js is loaded correctly.');
+            }
+            
+            // Set up event listeners for the history page
+            document.getElementById('search-history-button').addEventListener('click', function() {
+                if (typeof searchSpeechHistory === 'function') {
+                    searchSpeechHistory();
+                }
+            });
+            
+            document.getElementById('sort-history').addEventListener('change', function() {
+                if (typeof sortSpeechHistory === 'function') {
+                    sortSpeechHistory(this.value);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

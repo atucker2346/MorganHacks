@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Analysis - Notecards</title>
+    <link rel="stylesheet" href="../static/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Speech Analysis</h1>
+        <nav id="main-nav">
+            <a href="home.html">Home</a>
+            <a href="practice.html">Practice</a>
+            <a href="history.html">History</a>
+            <a href="#notes" class="active">Notecards</a>
+        </nav>
+    </header>
+
+    <div class="page-container">
+        <section id="notes-page" class="page active">
+            <main>
+                <div class="content-row">
+                    <section class="glass-box full-width" aria-labelledby="notes-heading">
+                        <h2 id="notes-heading">MY SAVED NOTECARDS</h2>
+                        <div class="search-container">
+                            <input type="text" id="notecard-search" placeholder="Search notecards...">
+                            <button id="search-button">Search</button>
+                        </div>
+                        <div id="notecards-container">
+                            <!-- Notecards will be dynamically populated here -->
+                            <p class="loading-block">Loading your saved notecards...</p>
+                        </div>
+                    </section>
+                </div>
+                <div class="content-row">
+                    <section class="glass-box full-width" aria-labelledby="editor-heading">
+                        <h2 id="editor-heading">NOTECARD EDITOR</h2>
+                        <div class="notecard-editor">
+                            <div class="editor-controls">
+                                <input type="text" id="notecard-title" placeholder="Notecard Title">
+                                <div class="button-group">
+                                    <button id="new-notecard">New</button>
+                                    <button id="save-notecard">Save</button>
+                                    <button id="delete-notecard">Delete</button>
+                                </div>
+                            </div>
+                            <textarea id="notecard-content" placeholder="Type your notecard content here..."></textarea>
+                            <div class="tags-container">
+                                <input type="text" id="notecard-tags" placeholder="Add tags (comma separated)">
+                                <div id="tags-display">
+                                    <!-- Tags will be displayed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </section>
+    </div>
+
+    <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
+
+    <script src="../static/main.js"></script>
+    <script>
+        // Execute when DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Call the function to load notecards if it exists
+            if (typeof loadSavedNotecards === 'function') {
+                loadSavedNotecards();
+            } else {
+                console.error('loadSavedNotecards function not found. Check if main.js is loaded correctly.');
+            }
+            
+            // Set up event listeners for the notecard editor
+            document.getElementById('new-notecard').addEventListener('click', function() {
+                if (typeof createNewNotecard === 'function') {
+                    createNewNotecard();
+                }
+            });
+            
+            document.getElementById('save-notecard').addEventListener('click', function() {
+                if (typeof saveNotecard === 'function') {
+                    saveNotecard();
+                }
+            });
+            
+            document.getElementById('delete-notecard').addEventListener('click', function() {
+                if (typeof deleteNotecard === 'function') {
+                    deleteNotecard();
+                }
+            });
+            
+            document.getElementById('search-button').addEventListener('click', function() {
+                if (typeof searchNotecards === 'function') {
+                    searchNotecards();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

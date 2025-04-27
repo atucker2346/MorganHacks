@@ -3,41 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech Analysis Home Page</title>
+    <title>Speech Analysis - Practice</title>
     <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
     <header>
         <h1>Speech Analysis</h1>
         <nav id="main-nav">
-            <a href="#home" data-page="home-page" class="active">Home</a>
-            <a href="practice.html" data-page="practice-page">Practice</a>
-            <a href="history.html" data-page="history-page">History</a>
-            <a href="notes.html" data-page="save-note-page">Notecards</a>
+            <a href="home.html">Home</a>
+            <a href="#practice" class="active">Practice</a>
+            <a href="history.html">History</a>
+            <a href="notes.html">Notecards</a>
         </nav>
     </header>
 
     <div class="page-container">
-        <section id="home-page" class="page active">
-            <div class="hero-section">
-                <iframe
-                  class="spline-iframe"
-                  src="https://my.spline.design/claritystream-vlh8q7RMRQu4axdnwAQYvkKk/"
-                  allowfullscreen
-                  aria-hidden="true" tabindex="-1" ></iframe>
-                <a href="#practice" class="cta-button" data-page="practice-page">Start Practicing Now</a>
-            </div>
-            <section class="features-section">
-                <h3>Key Features</h3>
-                <div class="features-grid">
-                    <div class="feature-item"><div class="feature-icon">📊</div><h4>Real-time Statistics</h4><p>Monitor your words per minute (WPM), pacing, and filler word usage as you speak.</p></div>
-                    <div class="feature-item"><div class="feature-icon">💡</div><h4>Actionable Feedback</h4><p>Receive instant suggestions and tips tailored to improve your delivery and clarity.</p></div>
-                    <div class="feature-item"><div class="feature-icon">📝</div><h4>Note Generation</h4><p>Automatically generate key points or note cards from your practice sessions.</p></div>
-                </div>
-            </section>
-        </section>
-
-        <section id="practice-page" class="page">
+        <section id="practice-page" class="page active">
             <main>
                 <div class="content-row">
                     <div class="glass-box video-area" aria-label="Live Video Feed Placeholder">
@@ -73,28 +54,26 @@
                         <h2 id="notes-heading">GENERATED NOTE CARDS</h2>
                         <div id="notes-list">
                             <p class="loading-block">Waiting for notes...</p>
-                            </div>
+                        </div>
                     </section>
                 </div>
             </main>
-        </section>
-
-        <section id="history-page" class="page">
-             <div>
-                 <h2>History Page</h2>
-                 <p>Your past practice sessions will be listed here. Review your progress, identify patterns, and see how far you've come! (This feature requires database integration on the backend.)</p>
-                 </div>
-        </section>
-        <section id="save-note-page" class="page">
-             <div>
-                <h2>Save Note Page</h2>
-                <p>This section will allow you to manage and review the note cards generated during your practice sessions. (This feature requires database integration on the backend.)</p>
-                </div>
         </section>
     </div>
 
     <footer>&copy; 2025 Speech Analysis Tool. All rights reserved.</footer>
 
     <script src="../static/main.js"></script>
+    <script>
+        // Execute when DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Directly call the fetch function since we're on the practice page
+            if (typeof fetchAndUpdatePracticeData === 'function') {
+                fetchAndUpdatePracticeData();
+            } else {
+                console.error('fetchAndUpdatePracticeData function not found. Check if main.js is loaded correctly.');
+            }
+        });
+    </script>
 </body>
 </html>
