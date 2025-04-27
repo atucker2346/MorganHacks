@@ -12,11 +12,12 @@ import re
 import threading
 import sqlite3 # <-- Import SQLite
 from datetime import datetime # <-- Import datetime for timestamps
+import api
 
 # --- Configuration ---
 # IMPORTANT: Set these as environment variables for security!
-GOOGLE_API_KEY_FROM_USER = "AIzaSyAlRoqW94GA64lUjEeciXUROSzE0E8EGt0" # User's key
-ELEVENLABS_API_KEY_FROM_USER = "sk_64ab860b0379f08849bd3a277f9728c5522969427273fac9" # User's key
+GOOGLE_API_KEY_FROM_USER = api.GOOGLE_API_KEY_FROM_USER # User's key
+ELEVENLABS_API_KEY_FROM_USER = api.ELEVENLABS_API_KEY_FROM_USER # User's key
 # Generic placeholders for the checks
 GOOGLE_KEY_PLACEHOLDER = "YOUR_GOOGLE_API_KEY_HERE"
 ELEVENLABS_KEY_PLACEHOLDER = "YOUR_ELEVENLABS_API_KEY_HERE"
