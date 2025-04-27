@@ -1,41 +1,35 @@
+# Hackathon.py - RE-INTEGRATED General Chat & Local TTS Playback
 import speech_recognition as sr
 import google.generativeai as genai
 import cv2
 import time
 import mediapipe as mp
 from elevenlabs.client import ElevenLabs
-from elevenlabs import play
+from elevenlabs import play # For local audio output
 import os
 import sys
 import numpy as np
 import re
 import threading
-import sqlite3 # <-- Import SQLite
-from datetime import datetime # <-- Import datetime for timestamps
-import api
+import sqlite3
+from datetime import datetime
+import api # Assuming api.py holds your keys correctly
 
+# --- Message History (Optional, for context) ---
 message_history = []
 
 def add_message(sender, text):
     global message_history
     message_history.append({'sender': sender, 'text': text})
-
-    if len(message_history) > 50:
+    if len(message_history) > 10:
         message_history.pop(0)
 
-def get_message_history():
-    return message_history
-
-def get_latest_transcript():
-    from Hackathon import speech_practice_data
-    return speech_practice_data.get("text", "")
-
+def get_message_history_text():
+    return "\n".join([f"{m['sender']}: {m['text']}" for m in message_history])
 
 # --- Configuration ---
-# IMPORTANT: Set these as environment variables for security!
-GOOGLE_API_KEY_FROM_USER = api.GOOGLE_API_KEY_FROM_USER # User's key
-ELEVENLABS_API_KEY_FROM_USER = api.ELEVENLABS_API_KEY_FROM_USER # User's key
-# Generic placeholders for the checks
+GOOGLE_API_KEY_FROM_USER = api.GOOGLE_API_KEY_FROM_USER
+ELEVENLABS_API_KEY_FROM_USER = api.ELEVENLABS_API_KEY_FROM_USER
 GOOGLE_KEY_PLACEHOLDER = "YOUR_GOOGLE_API_KEY_HERE"
 ELEVENLABS_KEY_PLACEHOLDER = "YOUR_ELEVENLABS_API_KEY_HERE"
 
@@ -49,48 +43,49 @@ START_PRACTICE_PHRASE = "start practice speech"
 END_PRACTICE_PHRASE = "end speech"
 STOP_COMMAND = "stop"
 FILLER_WORDS = ["um", "uh", "ah", "er", "like", "so", "you know", "actually", "basically", "well", "right"]
-DB_FILE = "study_buddy_sessions.db" # <-- Database file name
+DB_FILE = "study_buddy_sessions.db"
 
-# --- Shared State & Lock ---
+# --- Shared State & Locks ---
 is_practicing_speech = False
 current_posture_status = "Posture: Initializing..."
 posture_lock = threading.Lock()
 speech_practice_data = {"text": "", "start_time": None}
-main_thread_should_stop = False # Flag to signal exit
+main_thread_should_stop = False
+
+latest_frame = None
+frame_lock = threading.Lock()
+last_ai_message = "AI Initializing..." # For web UI display if needed
+ai_message_lock = threading.Lock()
 
 # --- Database Functions ---
-
+# (init_database and save_practice_session remain unchanged)
 def init_database():
-    """Initializes the SQLite database and creates the table if it doesn't exist."""
+    """Initializes the SQLite DB and creates tables if they don't exist."""
     try:
-        # Context manager handles connect/close and commit/rollback
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS speech_practice_sessions (
-                    session_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    duration_seconds REAL NOT NULL,
-                    total_words INTEGER NOT NULL,
-                    wpm INTEGER NOT NULL,
-                    filler_count INTEGER NOT NULL,
-                    final_posture TEXT,
-                    transcript TEXT
-                )
+                    session_id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL,
+                    duration_seconds REAL NOT NULL, total_words INTEGER NOT NULL,
+                    wpm INTEGER NOT NULL, filler_count INTEGER NOT NULL,
+                    final_posture TEXT, transcript TEXT )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS notecards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+                    content TEXT NOT NULL, tags TEXT, created_at TEXT NOT NULL )
+            """)
+            conn.commit()
             print(f"✅ Database '{DB_FILE}' initialized successfully.")
     except sqlite3.Error as e:
         print(f"❌❌ DATABASE ERROR during initialization: {e}")
-        # Depending on severity, you might want to exit or disable DB features
-        # sys.exit(f"Critical database error: {e}") # Example exit
 
 def save_practice_session(timestamp, duration, words, wpm, fillers, posture, transcript):
     """Saves the results of a practice session to the database."""
-    sql = """
-        INSERT INTO speech_practice_sessions
-        (timestamp, duration_seconds, total_words, wpm, filler_count, final_posture, transcript)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """
+    sql = """ INSERT INTO speech_practice_sessions
+              (timestamp, duration_seconds, total_words, wpm, filler_count, final_posture, transcript)
+              VALUES (?, ?, ?, ?, ?, ?, ?) """
     data_tuple = (timestamp, duration, words, wpm, fillers, posture, transcript)
     try:
         with sqlite3.connect(DB_FILE) as conn:
@@ -99,9 +94,10 @@ def save_practice_session(timestamp, duration, words, wpm, fillers, posture, tra
             print(f"✅ Practice session data saved to database (ID: {cursor.lastrowid}).")
     except sqlite3.Error as e:
         print(f"❌❌ DATABASE ERROR during save: {e}")
-        # Log the error, maybe notify user, but likely continue running
+
 
 # --- Setup Clients & Services ---
+# (Initialization logic remains unchanged)
 elevenlabs_client = None
 gemini_model = None
 mic = None
@@ -109,9 +105,9 @@ mic_available = False
 pose = None
 
 print("--- Initializing Services ---")
-# Try ElevenLabs (Keep corrected logic from previous step)
+# ElevenLabs
 if not ELEVENLABS_API_KEY or ELEVENLABS_API_KEY == ELEVENLABS_KEY_PLACEHOLDER:
-    print("⚠️ ElevenLabs API Key not found or is placeholder. TTS will be disabled.")
+    print("⚠️ ElevenLabs API Key missing or placeholder. TTS playback disabled.")
 else:
     try:
         elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
@@ -119,454 +115,392 @@ else:
     except Exception as e:
         print(f"❌ ElevenLabs Initialization Error: {e}")
         elevenlabs_client = None
-
-# Try Google Gemini (Keep corrected logic from previous step)
+# Gemini
 if not GOOGLE_API_KEY or GOOGLE_API_KEY == GOOGLE_KEY_PLACEHOLDER:
-     print("⚠️ Google API Key not found or is placeholder. Gemini chat will be disabled.")
+     print("⚠️ Google API Key missing or placeholder. Gemini chat disabled.")
 else:
     try:
-        print(f"### DEBUG ###: Attempting Gemini config with key ending ...{GOOGLE_API_KEY[-4:]}")
+        print(f"   Configuring Gemini with key ending ...{GOOGLE_API_KEY[-4:]}")
         genai.configure(api_key=GOOGLE_API_KEY)
         gemini_model = genai.GenerativeModel(
-            'gemini-2.0-flash',
-            system_instruction="You are a funny, supportive AI study buddy named 'Buddy'. Keep responses concise and friendly."
+            'gemini-1.5-flash',
+             # System prompt adjusted for direct voice interaction
+            system_instruction="You are a funny, supportive AI study buddy named 'Buddy'. Keep responses concise and friendly. You are interacting via direct voice. You want to help making our speaking skills better."
         )
         print("✅ Google Gemini configured.")
     except Exception as e:
         print(f"❌ Gemini Initialization Error: {e}")
         gemini_model = None
-
-# System prompt specifically for speech review
-system_message_speech_review = (
-    "You are an expert speech coach AI..." # (Same as before)
-)
-
-# Speech Recognition Setup
-r = sr.Recognizer()
-# Microphone Setup
+# Speech Recognition Mic Check
+r = sr.Recognizer() # Define recognizer instance globally
 try:
-    mic = sr.Microphone()
-    with mic as source: print(f"🎤 Found microphone: {source.device_index}")
-    mic_available = True
-    print("✅ Microphone available.")
-    print("🎤 Adjusting for ambient noise...")
-    with mic as source: r.adjust_for_ambient_noise(source, duration=1.0)
-    print("🎤 Noise adjustment complete.")
+    mic_list = sr.Microphone.list_microphone_names()
+    if not mic_list:
+         print("⚠️ No microphones found by SpeechRecognition.")
+         mic_available = False
+    else:
+         print(f"🎤 Found microphones: {len(mic_list)}. Will use default.")
+         mic = sr.Microphone()
+         mic_available = True
+         print("✅ Microphone available.")
 except Exception as e:
-    print(f"⚠️ Microphone not available or failed initial adjustment: {e}")
+    print(f"⚠️ Microphone check failed: {e}")
     mic_available = False
-
-# MediaPipe Setup
+    mic = None
+# MediaPipe Pose
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 try:
-    pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+    pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
     print("✅ MediaPipe Pose configured.")
 except Exception as e:
      print(f"❌ MediaPipe Pose Initialization Error: {e}")
      pose = None
 
+
 # --- Helper Functions ---
 
+# **** MODIFIED speak FUNCTION ****
 def speak(text):
-    """Uses ElevenLabs to speak the given text with added debugging."""
-    # (Keep the debugged version from previous step)
-    print("### DEBUG ###: speak() function called.")
-    if not elevenlabs_client: print("   [TTS Disabled] elevenlabs_client is None..."); print(f"   [TTS Disabled] Would say: {text}"); return
-    if not text or not text.strip(): print("   ⚠️ TTS Warning: Attempted to speak empty text..."); return
-    print(f"   🔊 Attempting to speak: '{text[:60]}...'")
-    try:
-        print("   [1] Calling elevenlabs_client.generate()...")
-        audio_stream = elevenlabs_client.generate(text=text, voice=VOICE_NAME, model='eleven_multilingual_v2', stream=True)
-        print("   [2] Returned from generate(). Checking stream...")
-        if not audio_stream: print("   ❌ ElevenLabs generate() returned an empty stream object..."); return
-        print("   [3] Attempting to call play(audio_stream)...")
-        try:
-            play(audio_stream)
-            add_message('computer', text)
-            print("   [4] Returned from play(). Playback likely started.")
-        except Exception as play_error: print(f"   ❌❌ ERROR DURING play(): {play_error}"); print(f"   ❌❌ This often means 'ffplay' or 'mpv' is not installed or not in your system PATH.")
-    except Exception as generate_error:
-        print(f"   ❌❌ ERROR DURING elevenlabs_client.generate(): {generate_error}")
-        if "API key" in str(generate_error).lower(): print("   ❌ Check if your ElevenLabs API key is correct and active.")
-        elif "quota" in str(generate_error).lower(): print("   ❌ You might have exceeded your ElevenLabs quota.")
-        elif "voice_id" in str(generate_error).lower(): print(f"   ❌ Check if the voice name '{VOICE_NAME}' is valid for your account/model.")
+    """
+    Updates the global 'last_ai_message' state AND
+    Uses ElevenLabs to generate and PLAY audio LOCALLY if available.
+    """
+    global last_ai_message, ai_message_lock, elevenlabs_client
 
+    if not text or not isinstance(text, str):
+        print("   ⚠️ Speak function called with invalid text.")
+        with ai_message_lock: last_ai_message = "Internal message error occurred."
+        add_message('computer', last_ai_message)
+        return
+
+    print(f"AI intends to say: '{text[:100]}...'")
+
+    # Update shared state for potential web display via API
+    with ai_message_lock:
+        last_ai_message = text
+    add_message('computer', text)
+
+    # --- TTS Generation and LOCAL Playback ---
+    if not elevenlabs_client:
+        print("   (TTS Playback Skipped: ElevenLabs client not available)")
+        return
+    if not text.strip():
+        print("   (TTS Playback Skipped: empty text)")
+        return
+
+    print("   🔊 Attempting ElevenLabs TTS generation & playback...")
+    try:
+        audio_stream = elevenlabs_client.generate(
+            text=text,
+            voice=VOICE_NAME,
+            model='eleven_multilingual_v2',
+            stream=True
+        )
+        # --- RE-ENABLED PLAYBACK ---
+        play(audio_stream) # Play audio locally
+        print("   ✅ TTS playback likely started.")
+        # --------------------------
+    except Exception as e:
+        print(f"   ❌❌ ERROR during TTS generation/playback: {e}")
+        if "API key" in str(e).lower(): print("      (Check ElevenLabs API key)")
+        elif "quota" in str(e).lower(): print("      (Check ElevenLabs quota)")
+        elif "ffplay" in str(e).lower() or "mpv" in str(e).lower():
+             print("      (Audio playback error: Ensure 'ffplay' or 'mpv' is installed and in system PATH)")
+        else: print(f"      (Full error: {e})")
+    # ---------------------------------
+
+# (get_last_ai_message function remains unchanged)
+def get_last_ai_message():
+    """Safely retrieve the last message stored by the speak function."""
+    global last_ai_message, ai_message_lock
+    with ai_message_lock:
+        if 'last_ai_message' in globals():
+            return last_ai_message
+        else:
+            print("CRITICAL WARNING: last_ai_message global variable not found!")
+            return "AI message state error."
+
+# (analyze_posture function remains unchanged)
 def analyze_posture(landmarks):
-    """Analyzes landmarks for simple posture cues."""
-    # (Definition is the same as before)
-    if not landmarks: return "Posture: No landmarks detected"
+    """Analyzes MediaPipe landmarks for simple posture cues."""
+    if not landmarks: return "Posture: No user detected"
     try:
         lm = landmarks.landmark
-        nose = lm[mp_pose.PoseLandmark.NOSE.value]
-        l_shoulder = lm[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
-        r_shoulder = lm[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-        l_ear = lm[mp_pose.PoseLandmark.LEFT_EAR.value]
-        r_ear = lm[mp_pose.PoseLandmark.RIGHT_EAR.value]
-        if not all(pt.visibility > 0.4 for pt in [nose, l_shoulder, r_shoulder, l_ear, r_ear]): return "Posture: Key points not clear"
-        shoulder_y_avg = (l_shoulder.y + r_shoulder.y) / 3.5
-        slouch_threshold = 0.08
+        required_indices = [ mp_pose.PoseLandmark.NOSE.value, mp_pose.PoseLandmark.LEFT_SHOULDER.value,
+            mp_pose.PoseLandmark.RIGHT_SHOULDER.value, mp_pose.PoseLandmark.LEFT_EAR.value, mp_pose.PoseLandmark.RIGHT_EAR.value ]
+        if any(idx >= len(lm) for idx in required_indices): return "Posture: Critical points missing"
+        nose = lm[mp_pose.PoseLandmark.NOSE.value]; l_shoulder = lm[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
+        r_shoulder = lm[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]; l_ear = lm[mp_pose.PoseLandmark.LEFT_EAR.value]
+        r_ear = lm[mp_pose.PoseLandmark.RIGHT_EAR.value]; visibility_threshold = 0.4
+        if not all(pt.visibility > visibility_threshold for pt in [nose, l_shoulder, r_shoulder, l_ear, r_ear]): return "Posture: Key points hidden"
+        shoulder_y_avg = (l_shoulder.y + r_shoulder.y) / 4.0; slouch_threshold = 0.06
         if nose.y > shoulder_y_avg + slouch_threshold: return "Posture: Possible Slouching"
         tilt_threshold = 0.02
         if abs(l_ear.y - r_ear.y) > tilt_threshold: return "Posture: Head Tilt Detected"
         return "Posture: Looking Good"
-    except IndexError: return "Posture: Some points missing"
-    except Exception: return "Posture: Analysis Error"
+    except IndexError: return "Posture: Landmark index out of range"
+    except Exception as e: print(f"Posture analysis error: {e}"); return "Posture: Analysis Error"
 
+
+# (analyze_and_feedback function remains unchanged, it calls the now-modified speak)
 def analyze_and_feedback():
-    """Analyzes collected speech data, gets posture, asks Gemini for feedback, AND SAVES TO DB."""
+    """Analyzes practice data, saves to DB, gets Gemini feedback, updates AI msg & speaks locally."""
     global current_posture_status, posture_lock, speech_practice_data, gemini_model, system_message_speech_review
-
     print("--- Analyzing Speech Practice ---")
-    full_text = speech_practice_data["text"]
-    start_time = speech_practice_data["start_time"]
-    end_time = time.time()
-
-    if start_time is None:
-        print("   ❌ Error: Practice start time not recorded.")
-        speak("Something went wrong, I didn't catch when you started. Sorry!")
-        return
-
-    duration_seconds = end_time - start_time
-
-    # --- Calculations ---
-    words = full_text.split()
-    total_words = len(words)
-    wpm = 0
-    if duration_seconds > 1:
-        wpm = int(total_words / (duration_seconds / 60.0))
-
+    full_text = speech_practice_data.get("text", ""); start_time = speech_practice_data.get("start_time"); end_time = time.time()
+    if start_time is None: print("   ❌ Error: Practice start time not recorded."); speak("Analysis aborted: start time missing."); return
+    duration_seconds = max(0, end_time - start_time); words = full_text.split(); total_words = len(words); wpm = 0
+    if duration_seconds > 1: wpm = int(total_words / (duration_seconds / 60.0))
     filler_count = 0
-    lower_text = full_text.lower()
-    for filler in FILLER_WORDS:
-        filler_count += len(re.findall(r'\b' + re.escape(filler) + r'\b', lower_text))
+    if full_text:
+        lower_text = full_text.lower()
+        for filler in FILLER_WORDS:
+            try: filler_count += len(re.findall(r'\b' + re.escape(filler) + r'\b', lower_text))
+            except re.error as re_err: print(f"   Warning: Regex error analyzing filler '{filler}': {re_err}")
+    with posture_lock: final_posture = current_posture_status
+    print(f"   📊 Duration: {duration_seconds:.2f}s, Words: {total_words}, WPM: {wpm}, Fillers: {filler_count}, Posture: {final_posture}")
+    current_timestamp = datetime.now().isoformat()
+    try: save_practice_session(current_timestamp, round(duration_seconds, 2), total_words, wpm, filler_count, final_posture, full_text)
+    except Exception as db_e: print(f"   ❌ Error saving session to DB: {db_e}")
+    feedback_prefix = ( f"Alright, practice session over! Results saved. "
+                        f"You spoke for about {duration_seconds:.1f}s ({total_words} words, ~{wpm} WPM) "
+                        f"with {filler_count} fillers. Final posture: {final_posture}. " )
+    gemini_feedback = ""
+    if not gemini_model: gemini_feedback = "My analysis brain isn't connected..."
+    elif not full_text and total_words == 0: gemini_feedback = "You didn't seem to say anything!"
+    else:
+        prompt = ( f"{system_message_speech_review}\n\nUser's data:\nTranscript: \"{full_text}\"\nWPM: {wpm}\nFillers: {filler_count}\nPosture: {final_posture}\n\nProvide feedback." )
+        print("\n   🧠 Requesting feedback from Gemini Speech Coach...")
+        try:
+            response = gemini_model.generate_content(prompt)
+            if hasattr(response, 'parts') and response.parts: gemini_feedback = "".join(part.text for part in response.parts if hasattr(part, 'text'))
+            elif hasattr(response, 'text'): gemini_feedback = response.text
+            else: gemini_feedback = "My AI coach gave a response I couldn't understand."
+            gemini_feedback = gemini_feedback.strip(); print(f"   🤖 Gemini Feedback Received.")
+            if not gemini_feedback: gemini_feedback = "My AI coach seems to be speechless!"
+        except Exception as e: print(f"   ❌ Error getting feedback from Gemini: {e}"); gemini_feedback = "Uh oh, had trouble getting detailed feedback."
+    final_message_for_user = feedback_prefix + "\n" + gemini_feedback
+    speak(final_message_for_user) # Speak the combined message LOCALLY
 
-    # Get final posture status safely
-    with posture_lock:
-        final_posture = current_posture_status
 
-    # --- Print Analysis Results ---
-    print(f"   📊 Duration: {duration_seconds:.2f} seconds")
-    print(f"   📊 Total Words: {total_words}")
-    print(f"   📊 WPM: {wpm}")
-    print(f"   📊 Filler Words: {filler_count}")
-    print(f"   📊 Final Posture: {final_posture}")
+# **** MODIFIED recognize_speech FUNCTION ****
+def recognize_speech(recognizer): # Accept recognizer instance 'r' as argument
+    """
+    Handles listening via SERVER mic using the provided recognizer instance.
+    Processes commands AND general conversation for local voice interaction.
+    """
+    # No longer need 'r' in globals, as it's passed in
+    global is_practicing_speech, speech_practice_data, main_thread_should_stop
+    global mic, mic_available, gemini_model # Keep other necessary globals
 
-    # --- Save results to Database BEFORE getting Gemini feedback ---
-    current_timestamp = datetime.now().isoformat() # Get timestamp
-    save_practice_session(
-        timestamp=current_timestamp,
-        duration=round(duration_seconds, 2), # Use rounded duration
-        words=total_words,
-        wpm=wpm,
-        fillers=filler_count,
-        posture=final_posture,
-        transcript=full_text # Save the transcript too
-    )
-    # -------------------------------------------------------------
-
-    # --- Get Gemini Feedback (existing logic) ---
-    if not gemini_model:
-        feedback = "Looks like my analysis brain (Gemini) isn't connected! But here's what I got: "
-        feedback += f"You spoke for about {duration_seconds:.1f} seconds, said {total_words} words, averaging {wpm} words per minute. "
-        feedback += f"I counted {filler_count} filler words. Your posture seemed to be '{final_posture}' towards the end. Results saved. Keep practicing!"
-        speak(feedback)
+    if not mic_available or not mic:
+        print("🔴 SR Thread: Mic not available, thread stopping.")
         return
 
-    prompt = f"{system_message_speech_review}\n\nUser's practice speech data:\n- Transcript: \"{full_text}\"\n- Calculated WPM: {wpm}\n- Filler Word Count: {filler_count} (Common fillers: {', '.join(FILLER_WORDS)})\n- Posture observed near the end: {final_posture}\n\nProvide supportive feedback and actionable tips based ONLY on this data."
+    try: # Adjust ambient noise at thread start using the passed recognizer
+         print("🎤 SR Thread: Adjusting for ambient noise...")
+         with mic as source: recognizer.adjust_for_ambient_noise(source, duration=1.5)
+         print("🎤 SR Thread: Noise adjustment complete.")
+    except Exception as e: print(f"⚠️ SR Thread: Mic ambient noise adjustment failed: {e}")
 
-    print("\n   🧠 Requesting feedback from Gemini Speech Coach...")
-    try:
-        response = gemini_model.generate_content(prompt)
-        gemini_feedback = ""
-        if hasattr(response, 'text') and response.text: gemini_feedback = response.text.strip()
-        elif isinstance(response, str): gemini_feedback = response.strip()
-
-        if gemini_feedback:
-             print(f"   🤖 Gemini Feedback:\n{gemini_feedback}\n")
-             summary_feedback = f"Alright, practice session over! Results saved. Haha. Here's the breakdown: \n" # Mention saving
-             summary_feedback += f"You spoke for about {duration_seconds:.1f} seconds at roughly {wpm} words per minute. \n"
-             summary_feedback += f"I caught {filler_count} filler words. \n"
-             summary_feedback += f"Your posture check showed: {final_posture}. \n\n"
-             summary_feedback += f"Here's some coaching feedback from my AI brain: \n{gemini_feedback}"
-             speak(summary_feedback)
-        else:
-            print("   ⚠️ Gemini returned no usable feedback text.")
-            fallback_feedback = "Hmm, my AI coach seems to be speechless! Lol. Results saved. Based on my numbers: " # Mention saving
-            fallback_feedback += f"You spoke for {duration_seconds:.1f} seconds, {total_words} words, at {wpm} WPM, with {filler_count} fillers. Posture was {final_posture}."
-            speak(fallback_feedback)
-
-    except Exception as e:
-        print(f"   ❌ Error getting feedback from Gemini: {e}")
-        speak("Uh oh, had a little trouble getting the detailed feedback, but your results were saved. You finished the practice!") # Mention saving
-
-
-# --- Speech Recognition Thread Function ---
-# (recognize_speech function definition remains the same)
-def recognize_speech():
-    """Handles listening for commands and practice speech in a background thread."""
-    global is_practicing_speech, speech_practice_data, main_thread_should_stop
-    if not mic_available: print("🔴 SR Thread: Mic not available..."); return
-    print("✅ SR thread ready.");
+    print("✅ SR thread ready (Listening for commands & conversation).")
     while not main_thread_should_stop:
-        print("-" * 10)
-        if is_practicing_speech: prompt = f"Listening (Practice Mode)... Say '{END_PRACTICE_PHRASE}' to stop."; phrase_timeout=3.0; phrase_limit=7
-        else: prompt = f"Listening (e.g., '{START_PRACTICE_PHRASE}', '{STOP_COMMAND}', chat)..."; phrase_timeout=3.0; phrase_limit=5
-        print(f"🎙️ {prompt}"); recognized_text = None
+        if not mic_available or not mic: break # Exit if mic lost
+
+        if is_practicing_speech:
+            prompt_text = f"Listening (Practice Mode - Say '{END_PRACTICE_PHRASE}' to stop)..."
+            listen_timeout = 2.0; phrase_limit = 7.0 # More continuous capture
+        else:
+            prompt_text = f"Listening (Say '{START_PRACTICE_PHRASE}' or chat)..."
+            listen_timeout = 3.0; phrase_limit = 7.0 # Wait longer for commands/chat
+
+        print(f"🎙️ {prompt_text}")
+        recognized_text = None; audio = None
         try:
-            with mic as source: audio = r.listen(source, phrase_time_limit=phrase_limit, timeout=phrase_timeout)
-            print("   👂 Processing..."); recognized_text = r.recognize_google(audio); print(f"   👂 Heard: '{recognized_text}'"); recognized_text_lower = recognized_text.lower()
-            add_message('user', recognized_text)
-            if is_practicing_speech: # Practice Mode
-                print("### DEBUG ###: In Practice Mode Branch")
-                if END_PRACTICE_PHRASE in recognized_text_lower: print("   🛑 Ending practice..."); is_practicing_speech = False; speak("Okay, ending practice..."); analyze_and_feedback(); speech_practice_data = {"text": "", "start_time": None}
-                else: speech_practice_data["text"] += (" " if speech_practice_data["text"] else "") + recognized_text; print(f"   📝 Text collected")
-            else: # Normal Mode
-                print("### DEBUG ###: In Normal Mode Branch")
-                if START_PRACTICE_PHRASE in recognized_text_lower: print("### DEBUG ###: Matched START..."); print("   🚀 Starting practice..."); is_practicing_speech = True; speech_practice_data = {"text": "", "start_time": time.time()}; speak(f"Got it! Practice mode ON...")
-                elif STOP_COMMAND in recognized_text_lower: print("### DEBUG ###: Matched STOP..."); print("   🛑 Stop command detected..."); speak("Okay, shutting down!"); main_thread_should_stop = True; break
-                else: # General Chat Path
-                    print("### DEBUG ###: Entering general chat path.")
-                    if gemini_model:
-                        print("### DEBUG ###: gemini_model object exists.");
-                        try:
-                            print("   🧠 Thinking..."); response = gemini_model.generate_content(recognized_text); print(f"### DEBUG ###: Gemini raw type: {type(response)}"); reply = ""
-                            if hasattr(response, 'text') and response.text: reply = response.text.strip()
-                            elif isinstance(response, str): reply = response.strip()
-                            else: print(f"   ⚠️ Unexpected Gemini structure: {response}"); reply = "Confusing answer..."
-                            if reply: print(f"### DEBUG ###: Extracted reply: '{reply[:60]}...'"); print(f"   🤖 Buddy says: {reply}"); speak(reply)
-                            else: print("### DEBUG ###: Reply empty."); speak("Didn't come up with anything...")
-                        except Exception as e: print(f"   ❌ Gemini Error: {e}"); speak("Oops, snag thinking...")
-                    else: print("### DEBUG ###: gemini_model is None."); speak("Chat function isn't available.")
-        except sr.WaitTimeoutError: print("   👂 No speech (timeout).")
-        except sr.UnknownValueError: print("   👂 Couldn't understand.")
-        except sr.RequestError as e: print(f"   ❌ SR service error: {e}"); time.sleep(2)
+            with mic as source:
+                try:
+                    # Use the passed 'recognizer' instance
+                    audio = recognizer.listen(source, phrase_time_limit=phrase_limit, timeout=listen_timeout)
+                except sr.WaitTimeoutError: continue # Normal, just loop
+
+            if audio:
+                 print("   👂 Processing audio...")
+                 try:
+                     # Use the passed 'recognizer' instance
+                     recognized_text = recognizer.recognize_google(audio)
+                     print(f"   👂 Heard: '{recognized_text}'")
+                     recognized_text_lower = recognized_text.lower()
+                     add_message('user_voice', recognized_text) # Log heard input
+
+                     # --- State-Based Logic ---
+                     if is_practicing_speech: # --- PRACTICE MODE ---
+                         if END_PRACTICE_PHRASE in recognized_text_lower:
+                             print("   🛑 Ending practice via voice command...")
+                             is_practicing_speech = False; speak("Okay, ending practice session now.") # Play TTS
+                             try: analyze_and_feedback()
+                             except Exception as analysis_err: print(f"❌ Error during analysis: {analysis_err}")
+                             finally: speech_practice_data = {"text": "", "start_time": None}
+                         else: # Collect speech during practice
+                              speech_practice_data["text"] += (" " if speech_practice_data["text"] else "") + recognized_text
+                              print(f"   📝 Text collected for practice.")
+
+                     else: # --- NORMAL MODE (Commands or Chat) ---
+                         if START_PRACTICE_PHRASE in recognized_text_lower:
+                             print("   🚀 Starting practice via voice command...")
+                             is_practicing_speech = True; speech_practice_data = {"text": "", "start_time": time.time()}
+                             speak(f"Got it! Practice mode started. I'm listening.") # Play TTS
+
+                         elif STOP_COMMAND in recognized_text_lower:
+                             print("   🛑 Stop command detected via voice..."); speak("Okay, shutting down!") # Play TTS
+                             main_thread_should_stop = True; break
+
+                         # --- RE-ADDED GENERAL CHAT PATH ---
+                         elif recognized_text: # If it wasn't a command, treat as chat
+                            print("   💬 Treating heard audio as general chat.")
+                            if gemini_model:
+                                print("      🧠 Sending to Gemini...")
+                                try:
+                                    response = gemini_model.generate_content(recognized_text) # Send text to Gemini
+                                    ai_reply = "" # Extract reply
+                                    if hasattr(response, 'parts') and response.parts: ai_reply = "".join(part.text for part in response.parts if hasattr(part, 'text'))
+                                    elif hasattr(response, 'text'): ai_reply = response.text
+                                    else: ai_reply = "I got a response I couldn't understand."
+                                    ai_reply = ai_reply.strip()
+                                    if ai_reply:
+                                        print(f"      🤖 Gemini Reply: '{ai_reply[:60]}...'")
+                                        speak(ai_reply) # Play the reply LOCALLY using modified speak()
+                                    else:
+                                        print("      ⚠️ Gemini returned empty reply.")
+                                        # speak("I didn't get a response for that.") # Optional feedback
+                                except Exception as e:
+                                    print(f"      ❌ Gemini Error during chat: {e}")
+                                    speak("Oops, I had trouble thinking about that.") # Play TTS
+                            else:
+                                print("      ⚠️ Gemini model not available for chat.")
+                                speak("Sorry, my chat function isn't available right now.") # Play TTS
+                         # ------------------------------------
+
+                 except sr.UnknownValueError: print("   👂 Could not understand audio.")
+                 except sr.RequestError as e: print(f"   ❌ SR Service Error: {e}"); time.sleep(2)
+
+        except OSError as e: print(f"   ❌ Microphone Access Error: {e}"); mic_available = False; break
         except Exception as e: print(f"   ❌ Unexpected SR loop error: {e}"); time.sleep(1)
+
     print("🔴 SR thread finished.")
 
 
-# --- Camera Display Function (Runs in Main Thread) ---
-# (show_camera function definition remains the same)
-def show_camera():
-    """Handles camera feed, pose detection, and display."""
-    global current_posture_status, posture_lock, main_thread_should_stop
-    print("### DEBUG ###: Attempting show_camera.");
-    if not pose: print("🔴 Camera Thread: No Pose object."); main_thread_should_stop = True; return
-    indices_to_try = [0, 1, -1]; cap = None; opened_index = None
-    for index in indices_to_try:
-        print(f"### DEBUG ###: Trying Cam Index {index}."); cap = cv2.VideoCapture(index)
-        if cap is not None and cap.isOpened(): print(f"✅ Cam Index {index} OK."); opened_index = index; break
-        else: print(f"⚠️ Cam Index {index} failed."); cap.release(); cap = None; time.sleep(0.5)
-    if cap is None: print("🔴🔴🔴 CAMERA FAILED TO OPEN 🔴🔴🔴"); main_thread_should_stop = True; return # Plus checklist
-    print(f"--- 🎥 Cam Feed Starting (Index: {opened_index}) ---"); window_name = "AI Study Buddy Cam (Press 'q' to quit)"; cv2.namedWindow(window_name)
-    print("### DEBUG ###: Entering camera loop."); loop_count = 0
-    while not main_thread_should_stop:
-        ret, frame = cap.read()
-        if not ret: print(f"   ⚠️ Cam Warning: Failed frame {loop_count}."); time.sleep(0.1); continue
-        try:
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB); frame_rgb.flags.writeable = False; results = pose.process(frame_rgb); frame_rgb.flags.writeable = True; frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-            posture_status_analysis = "Posture: No user detected"
-            if results.pose_landmarks: posture_status_analysis = analyze_posture(results.pose_landmarks); mp_drawing.draw_landmarks(frame_bgr, results.pose_landmarks, mp_pose.POSE_CONNECTIONS, mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2), mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2))
-            with posture_lock: current_posture_status = posture_status_analysis
-            cv2.putText(frame_bgr, posture_status_analysis, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
-            if is_practicing_speech: cv2.putText(frame_bgr, "REC ●", (frame_bgr.shape[1] - 100, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
-            cv2.imshow(window_name, frame_bgr)
-        except Exception as e: print(f"   ❌ Cam ERROR processing frame: {e}")
-        key = cv2.waitKey(5) & 0xFF
-        if key == ord('q'): print("   🛑 'q' pressed."); main_thread_should_stop = True; break
-        loop_count += 1
-    print(f"### DEBUG ###: Exited camera loop ({loop_count} iter)."); print("--- 🎥 Releasing Cam ---"); cap.release(); print("### DEBUG ###: cap.release() done.")
-    cv2.destroyAllWindows(); print("### DEBUG ###: destroyAllWindows() done."); time.sleep(0.1); cv2.waitKey(1); print("### DEBUG ###: Extra waitKey done.")
-
+# --- Camera Processing & Streaming Functions ---
+# (run_camera_feed and gen_camera_frames remain unchanged from your provided code)
 def run_camera_feed():
-    """Background thread: capture video frames, run pose detection, and store frames for streaming."""
-    global latest_frame, last_ai_message
-    cap = cv2.VideoCapture(0)  # open default camera
-    if not cap.isOpened():
-        print("❌ Camera failed to open")
-        main_thread_should_stop = True
-        return
+    """Background thread for Flask: Captures frames, runs pose detection, updates state, stores latest frame."""
+    global latest_frame, frame_lock, current_posture_status, posture_lock, main_thread_should_stop, pose
+    print("📸 Starting background camera feed thread for Flask.")
+    if not pose: print("❌ Camera Thread Error: MediaPipe Pose object not initialized."); return
+    indices_to_try = [0, 1, -1]; cap = None
+    for index in indices_to_try:
+        print(f"   Trying camera index {index}..."); cap = cv2.VideoCapture(index)
+        if cap and cap.isOpened(): print(f"   ✅ Camera index {index} opened."); break
+        else:
+            if cap: cap.release(); print(f"   ⚠️ Camera index {index} failed."); cap = None; time.sleep(0.2)
+    if not cap: print("❌❌ CAMERA THREAD ERROR: Failed to open camera."); speak("Error: Could not access camera."); return
+
+    frame_count = 0; last_error_print_time = 0; error_interval = 5
     while not main_thread_should_stop:
         ret, frame = cap.read()
         if not ret:
-            continue  # skip if frame read failed
-        # Perform pose detection (using MediaPipe Pose from hackathon.py)
+             current_time = time.time()
+             if current_time - last_error_print_time > error_interval: print(f"   ⚠️ Cam Warning: Failed frame {frame_count}."); last_error_print_time = current_time
+             time.sleep(0.1); continue
         try:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame_rgb.flags.writeable = False
-            results = pose.process(frame_rgb)   # use the global pose model
-            frame_rgb.flags.writeable = True
-            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-            # Determine posture status
-            posture_text = "Posture: No user detected"
+            frame_rgb.flags.writeable = False; results = pose.process(frame_rgb)
+            frame_rgb.flags.writeable = True; frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            posture_text = "Posture: Detecting..."
             if results and results.pose_landmarks:
                 posture_text = analyze_posture(results.pose_landmarks)
-                # Draw landmarks on frame for visual feedback
-                mp_drawing.draw_landmarks(
-                    frame_bgr, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-                    mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
-                    mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
-                )
-            # Update global posture status (thread-safe)
-            with posture_lock:
-                current_posture_status = posture_text
-            # Overlay posture text and REC indicator on frame
-            cv2.putText(frame_bgr, posture_text, (10,30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2, cv2.LINE_AA)
-            if is_practicing_speech:
-                cv2.putText(frame_bgr, "REC ●", (frame_bgr.shape[1]-80, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 2, cv2.LINE_AA)
+                mp_drawing.draw_landmarks(frame_bgr, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
+                    mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=2),
+                    mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2) )
+            with posture_lock: current_posture_status = posture_text
+            cv2.putText(frame_bgr, posture_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+            if is_practicing_speech: cv2.putText(frame_bgr, "REC ●", (frame_bgr.shape[1] - 100, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]; ret_encode, buffer = cv2.imencode('.jpg', frame_bgr, encode_param)
+            if not ret_encode:
+                current_time = time.time()
+                if current_time - last_error_print_time > error_interval: print("   ⚠️ Failed to encode frame."); last_error_print_time = current_time
+                continue
+            frame_bytes = buffer.tobytes()
+            with frame_lock: latest_frame = frame_bytes
         except Exception as e:
-            print(f"❌ Error in camera thread: {e}")
-            continue
-
-        # Encode frame to JPEG
-        ret, buffer = cv2.imencode('.jpg', frame_bgr)
-        if not ret:
-            continue
-        frame_bytes = buffer.tobytes()
-        # Store the latest frame in a global variable (with a lock for thread safety)
-        with frame_lock:
-            latest_frame = frame_bytes
-    # Cleanup when loop exits
-    cap.release()
-    print("Camera thread terminating.")
+            current_time = time.time()
+            if current_time - last_error_print_time > error_interval: print(f"❌ Error processing frame: {e}"); last_error_print_time = current_time
+            time.sleep(0.1)
+        frame_count += 1
+        # time.sleep(0.01) # Optional CPU throttle
+    if cap: cap.release()
+    print("📸 Camera thread terminating.")
+    if pose:
+       try: pose.close(); print("   ✅ MediaPipe Pose resources released.")
+       except Exception as e: print(f"   ❌ Error closing MediaPipe Pose: {e}")
 
 def gen_camera_frames():
-    cap = cv2.VideoCapture(0)
-    
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue  # Skip this iteration if no frame was captured
-            
-        try:
-            # Convert frame to RGB for MediaPipe
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Process with MediaPipe Pose
-            if pose:  # Make sure the pose object exists
-                results = pose.process(frame_rgb)
-                
-                # Draw landmarks if pose detected
-                if results and results.pose_landmarks:
-                    mp_drawing.draw_landmarks(
-                        frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-                        mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
-                        mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
-                    )
-                    
-                    # Analyze posture and update global state
-                    posture_text = analyze_posture(results.pose_landmarks)
-                    cv2.putText(frame, posture_text, (10, 30), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
-                    
-                    with posture_lock:
-                        current_posture_status = posture_text
-            
-            # Add REC indicator if in practice mode
-            if is_practicing_speech:
-                cv2.putText(frame, "REC ●", (frame.shape[1] - 100, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
-                
-            # Encode frame to JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
-            if not ret:
-                continue
-                
-            # Yield frame for streaming
-            yield (b"--frame\r\n"
-                  b"Content-Type: image/jpeg\r\n\r\n" + 
-                  buffer.tobytes() + b"\r\n")
-                  
-        except Exception as e:
-            print(f"Error in camera frame generation: {e}")
-            continue  # Continue to the next frame if there's an error
-            
-    # Cleanup when the function exits
-    cap.release()
+    """Generator function used by Flask to stream MJPEG frames."""
+    global latest_frame, frame_lock, main_thread_should_stop
+    print("   STREAM: Video stream generator started.")
+    frame_count = 0; last_yield_time = time.time()
+    while not main_thread_should_stop:
+        frame_to_send = None
+        with frame_lock:
+            if latest_frame: frame_to_send = latest_frame[:]
+        if frame_to_send:
+            try:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame_to_send + b'\r\n')
+                frame_count += 1; now = time.time(); elapsed = now - last_yield_time
+                target_delay = 1.0 / 30.0; sleep_time = max(0, target_delay - elapsed)
+                time.sleep(sleep_time); last_yield_time = time.time()
+            except GeneratorExit: print("   STREAM: Client disconnected."); break
+            except Exception as e: print(f"   STREAM: Error yielding frame: {e}"); break
+        else: time.sleep(0.05) # Wait if no frame ready
+    print(f"   STREAM: Video stream generator stopped after {frame_count} frames.")
 
 
-# --- Main Execution ---
+# --- Main Execution (for Standalone Testing) ---
+# (This block remains unchanged and should work correctly with the modified functions)
 if __name__ == "__main__":
-    print("\n--- Starting AI Study Bot ---")
-    print(f"Say '{START_PRACTICE_PHRASE}' to start recording.")
-    print(f"Say '{END_PRACTICE_PHRASE}' to stop recording and get feedback.")
-    print(f"Say '{STOP_COMMAND}' or press 'q' in the camera window to exit.")
-
-    # --- Initialize Database ---  <-- ADD THIS CALL
+    print("\n--- Starting AI Study Bot (Standalone Mode) ---")
+    print(f"Speak '{START_PRACTICE_PHRASE}' or '{END_PRACTICE_PHRASE}'. Speak '{STOP_COMMAND}' or press Ctrl+C to exit.")
     init_database()
-    # ---------------------------
-
+    # Use the modified speak() which includes local playback
     if not mic_available: speak("Warning: Microphone is not working...")
     if not pose: speak("Warning: MediaPipe Pose failed...")
 
-    # --- Start Speech Recognition Thread ---
     speech_thread = None
     if mic_available:
-        print("### DEBUG ###: Creating speech recognition thread.")
-        speech_thread = threading.Thread(target=recognize_speech, daemon=True)
+        print("   Creating speech recognition thread (standalone)...")
+        # Pass the global 'r' instance when running standalone
+        speech_thread = threading.Thread(target=recognize_speech, args=(r,), daemon=True);
         speech_thread.start()
-        print("✅ Speech recognition thread started.")
-    else:
-        print("🔴 Speech recognition thread NOT started (no microphone).")
+        print("   ✅ Speech recognition thread started.")
+    else: print("   🔴 Speech recognition thread NOT started (no microphone).")
 
-
-    # # --- Run Camera Display in Main Thread ---
-    # print("### DEBUG ###: Checking if MediaPipe Pose object exists before calling show_camera.")
-    # if pose:
-    #     print("### DEBUG ###: MediaPipe Pose object exists. Calling show_camera() in main thread.")
-    #     show_camera() # Run camera in main thread
-    #     print("### DEBUG ###: Returned from show_camera() call.")
-    # else:
-    #     print("🔴 Camera display skipped (MediaPipe Pose failed).")
-    #     if mic_available and speech_thread:
-    #          print("ℹ️ Running in audio-only mode. Say 'stop' to exit.")
-    #          while not main_thread_should_stop and speech_thread and speech_thread.is_alive():
-    #               try: time.sleep(0.5)
-    #               except KeyboardInterrupt: print("\nCtrl+C detected. Stopping."); main_thread_should_stop = True
-    #          if speech_thread: speech_thread.join(timeout=1.0)
-    #     else:
-    #          speak("Both microphone and camera components failed. Exiting.")
-    #          if 'sys' not in locals(): import sys # Make sure sys is imported
-    #          sys.exit(1)
-
-def generate_video_frames():
-    import cv2, threading
-    cap = cv2.VideoCapture(0)
-
-    while True:
-        ret, frame = cap.read(0)
-        if not ret:
-            continue
-        from Hackathon import pose, mp_pose, analyze_posture, posture_lock, current_posture_status
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BAYER_BGR2RGB)
-        results = pose.process(rgb) if pose else None
-        if results and results.pose_landmarks:
-            posture = analyze_posture(results.pose_landmarks)
-            with posture_lock:
-                current_posture_status = posture
-            #draw onf frame
-            import mediapipe as mp
-            mp.solutions.drawing_utils.draw_landmarks(
-                frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
-            )
-
-        ret, buffer = cv2.imencode('jpeg', frame)
-        frame_bytes = buffer.tobytes()
-        yield(b'--frame\r\n'
-            b'Content-Type: image?jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-    cap.release()
-
-    
-
-    # --- Final Cleanup ---
-    print("\n--- Shutting Down ---")
+    camera_thread = None
     if pose:
-        try: pose.close(); print("✅ MediaPipe Pose resources released.")
-        except Exception as e: print(f"❌ Error closing MediaPipe Pose: {e}")
-    if speech_thread and speech_thread.is_alive():
-         print("### DEBUG ###: Waiting briefly for speech thread...")
-         speech_thread.join(timeout=1.0)
-         if speech_thread.is_alive(): print("⚠️ Speech thread did not stop cleanly.")
-    time.sleep(0.5); print("👋 Bot shut down gracefully.")
+        print("   Creating background camera processing thread (standalone)...")
+        camera_thread = threading.Thread(target=run_camera_feed, daemon=True); camera_thread.start()
+        print("   ✅ Background camera thread started.")
+    else: print("   🔴 Background camera thread NOT started (MediaPipe Pose failed).")
+
+    print("\n--- Bot is running (Standalone). Press Ctrl+C in terminal to stop. ---")
+    try:
+        while not main_thread_should_stop:
+            if camera_thread and not camera_thread.is_alive() and pose: print("⚠️ BG camera thread died!"); main_thread_should_stop = True
+            if speech_thread and not speech_thread.is_alive() and mic_available: print("⚠️ Speech thread died!"); main_thread_should_stop = True
+            time.sleep(1)
+    except KeyboardInterrupt: print("\nCtrl+C detected. Stopping threads..."); main_thread_should_stop = True
+
+    print("\n--- Shutting Down Standalone Mode ---")
+    if camera_thread and camera_thread.is_alive(): print("   Waiting for camera thread..."); camera_thread.join(timeout=2.0)
+    if speech_thread and speech_thread.is_alive(): print("   Waiting for speech thread..."); speech_thread.join(timeout=2.0)
+    print("👋 Bot shut down gracefully.")
