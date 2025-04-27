@@ -1,0 +1,50 @@
+{# templates/live_practice.html #}
+{% extends "layout.html" %}
+{% block title %}Live Practice{% endblock %}
+
+{% block content %}
+<header>
+    <h1>Speech Analysis</h1>
+    <nav id="main-nav">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('practice') }}">Practice</a>
+        <a href="{{ url_for('history') }}">History</a>
+        <a href="{{ url_for('notecards') }}">Notecards</a>
+        <a href="{{ url_for('live_practice') }}" class="active">Live Practice</a>
+    </nav>
+</header>
+
+<div class="page-container">
+    <section id="live-practice-page" class="page active">
+        <div class="content-row">
+            <!-- Camera Feed-->
+            <div class="glass-box video-area" aria-label="Live Video Feed">
+                <img id="camera-feed"
+                     src="{{ url_for('video_feed') }}"
+                     alt="Live camera stream"
+                     style="width: 100%; height:auto; border-radius:var(--border-radius);" />
+            </div>
+
+
+            <section class="glass-box chat-box" aria-labelledby="chat-heading">
+                <h2 id="chat-heading">Live Feedback & Conversation</h2>
+                <div id="chat-messages" style="overflow-y:auto; max-height:300px; margin-bottom:15px;">
+                    {% for msg in messages %}
+                    <div class="message {{ msg.sender }}">
+                        <span class="message-text">{{ msg.text }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p><strong>Your Speech:</strong></p>
+                <textarea id="user-speech" rows="4" readonly
+                          style="width:100%; background:rgba(0, 0n, 0, 0.2);
+                                color:var(--text-color); border:1px solid var(--glass-box-border);
+                                border-radius: 4px; padding:8px; font-size:0.9em;"">
+{{ user_speech }}</textarea>
+            </section>
+        </div>
+    </section>
+</div>
+
+<footer>&copy; 2025 Speech Analytics Tool. All Rights Reserved.</footer>
+{% endblock %}
