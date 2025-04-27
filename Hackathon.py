@@ -187,10 +187,10 @@ def analyze_posture(landmarks):
         l_ear = lm[mp_pose.PoseLandmark.LEFT_EAR.value]
         r_ear = lm[mp_pose.PoseLandmark.RIGHT_EAR.value]
         if not all(pt.visibility > 0.4 for pt in [nose, l_shoulder, r_shoulder, l_ear, r_ear]): return "Posture: Key points not clear"
-        shoulder_y_avg = (l_shoulder.y + r_shoulder.y) / 2
+        shoulder_y_avg = (l_shoulder.y + r_shoulder.y) / 3.5
         slouch_threshold = 0.08
         if nose.y > shoulder_y_avg + slouch_threshold: return "Posture: Possible Slouching"
-        tilt_threshold = 0.05
+        tilt_threshold = 0.02
         if abs(l_ear.y - r_ear.y) > tilt_threshold: return "Posture: Head Tilt Detected"
         return "Posture: Looking Good"
     except IndexError: return "Posture: Some points missing"
