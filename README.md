@@ -2,6 +2,8 @@
 
 ## Overview
 
+This Projecte won Second Place at MorganHacks 2025
+
 Vocalytics is a web-based application that helps users improve their public speaking skills by providing real-time feedback on speech patterns, posture, and delivery. The app uses computer vision, speech recognition, and AI to analyze speaking performance and offer personalized coaching.
 
 ## Features
